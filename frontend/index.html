@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentient Study</title>
+    
+    <!-- Google Fonts: Inter and Material Symbols -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+    
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --primary: #0b57d0;
+            --primary-hover: #0842a0;
+            --surface: #ffffff;
+            --bg: #f3f6fc;
+            --text-main: #1f1f1f;
+            --text-muted: #444746;
+            --border: #e0e0e0;
+            --danger: #b3261e;
+            --success: #146c2e;
+            --warning: #b36b00;
+            --card-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Navbar */
+        header {
+            background: var(--surface);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .logo span.material-symbols-rounded { color: var(--primary); }
+
+        /* Container */
+        .container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        /* Views */
+        .view { display: none; animation: fadeIn 0.3s ease; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Control Panel */
+        .control-panel {
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .input-group {
+            flex-grow: 1;
+            position: relative;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        .input-group input:focus { border-color: var(--primary); }
+        
+        button {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 24px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, opacity 0.2s;
+            font-family: inherit;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-danger { background: var(--danger); color: white; }
+
+        /* Live Status Indicator */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #e8f0fe;
+            color: var(--primary);
+        }
+        .status-badge.recording { background: #fce8e6; color: var(--danger); }
+        .status-badge.recording::before {
+            content: ''; display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--danger);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* Session Grid */
+        h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--text-main); }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        .session-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .session-card:hover {
+            box-shadow: var(--card-shadow);
+            transform: translateY(-2px);
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+        .card-title { font-weight: 500; font-size: 1rem; color: var(--text-main); word-break: break-word; }
+        .card-date { font-size: 0.75rem; color: var(--text-muted); }
+        .card-footer { display: flex; gap: 0.5rem; }
+        .chip {
+            background: var(--bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Session Details View */
+        .back-btn {
+            background: transparent;
+            color: var(--text-muted);
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .back-btn:hover { background: #e8eaed; }
+        
+        .details-header { margin-bottom: 2rem; }
+        
+        .placeholder-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        
+        /* Chart specific styles */
+        .analytics-card {
+            grid-column: 1 / -1;
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: var(--card-shadow);
+        }
+        .chart-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .chart-tab {
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .chart-tab:hover { background: var(--bg); }
+        .chart-tab.active {
+            background: #e8f0fe;
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .placeholder-box {
+            background: var(--surface);
+            border: 1px dashed #c7c7c7;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            min-height: 250px;
+            gap: 1rem;
+            text-align: center;
+            padding: 2rem;
+        }
+        .placeholder-box .material-symbols-rounded { font-size: 3rem; opacity: 0.5; }
+        .empty-state { text-align: center; color: var(--text-muted); grid-column: 1 / -1; padding: 3rem; }
+        
+        .context-area {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+        }
+        .issue-item {
+            background: #fff8f6;
+            border-left: 4px solid var(--danger);
+            padding: 1rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        .issue-item.confusion {
+            background: #fff3e0;
+            border-left-color: var(--warning);
+        }
+        .issue-time { font-weight: 600; margin-bottom: 0.5rem; display: block; }
+        .issue-text { margin-bottom: 0.25rem; color: var(--text-muted); line-height: 1.4; }
+        .issue-text strong { color: var(--text-main); }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <span class="material-symbols-rounded">psychology</span>
+            SentientStudy
+        </div>
+        <div id="globalStatus" class="status-badge">System Ready</div>
+    </header>
+
+    <div class="container">
+        
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboardView" class="view active">
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <div class="input-group">
+                    <input type="text" id="sessionNameInput" placeholder="What are you studying right now? (e.g. Calculus Chapter 4)" />
+                </div>
+                <button id="startBtn" class="btn-primary" onclick="startSession()">
+                    <span class="material-symbols-rounded">play_arrow</span>
+                    Start Session
+                </button>
+                <button id="stopBtn" class="btn-danger" style="display: none;" onclick="stopSession()">
+                    <span class="material-symbols-rounded">stop</span>
+                    Stop Recording
+                </button>
+            </div>
+
+            <h2>Recent Sessions</h2>
+            <div class="grid" id="sessionList">
+                <div class="empty-state">Loading your sessions...</div>
+            </div>
+        </div>
+
+        <!-- SESSION DETAILS VIEW -->
+        <div id="detailsView" class="view">
+            <button class="back-btn" onclick="showDashboard()">
+                <span class="material-symbols-rounded">arrow_back</span>
+                Back to Dashboard
+            </button>
+            
+            <div class="details-header">
+                <h2 id="detailTitle" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Session Name</h2>
+                <p id="detailDate" style="color: var(--text-muted); font-size: 0.875rem;">Date</p>
+            </div>
+
+            <div class="placeholder-grid">
+                
+                <!-- Main Analytics Chart -->
+                <div class="analytics-card">
+                    <div class="chart-tabs">
+                        <button class="chart-tab active" onclick="switchChart('flow')">Study Flow (Composite)</button>
+                        <button class="chart-tab" onclick="switchChart('engagement')">Engagement</button>
+                        <button class="chart-tab" onclick="switchChart('confusion')">Confusion</button>
+                        <button class="chart-tab" onclick="switchChart('frustration')">Frustration</button>
+                    </div>
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="analyticsChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Friction Points Area -->
+                <div class="context-area">
+                    <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: var(--text-main);">
+                        <span class="material-symbols-rounded" style="color: var(--warning);">warning</span> 
+                        Key Friction Points
+                    </h3>
+                    <div id="frictionPointsList" style="display: flex; flex-direction: column; gap: 1rem; max-height: 300px; overflow-y: auto; padding-right: 0.5rem;">
+                        <div class="empty-state" style="padding: 1rem;">No friction points detected yet.</div>
+                    </div>
+                </div>
+
+                <!-- Chatbot Area Placeholder -->
+                <div class="placeholder-box">
+                    <span class="material-symbols-rounded">smart_toy</span>
+                    <h3>AI Tutor Chatbot</h3>
+                    <p style="font-size: 0.875rem;">Proactive interventions & conversational AI will appear here</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const API = '/api';
+        
+        // DOM Elements
+        const dashboardView = document.getElementById('dashboardView');
+        const detailsView = document.getElementById('detailsView');
+        const sessionList = document.getElementById('sessionList');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const nameInput = document.getElementById('sessionNameInput');
+        const globalStatus = document.getElementById('globalStatus');
+
+        // Chart State
+        let chartInstance = null;
+        let currentChartData = { labels: [], engagement: [], confusion: [], frustration: [], flow: [] };
+
+        // Navigation
+        function showDashboard() {
+            detailsView.classList.remove('active');
+            dashboardView.classList.add('active');
+            if(chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+            }
+            loadSessions();
+        }
+
+        async function showDetails(id, title, dateStr) {
+            dashboardView.classList.remove('active');
+            detailsView.classList.add('active');
+            
+            document.getElementById('detailTitle').textContent = title || `Session #${id}`;
+            document.getElementById('detailDate').textContent = new Date(dateStr).toLocaleString();
+            
+            await fetchAndRenderChart(id);
+        }
+
+        // Analytics Logic
+        async function fetchAndRenderChart(sessionId) {
+            try {
+                const res = await fetch(`${API}/results/${sessionId}`);
+                const data = await res.json();
+                
+                const labels = [];
+                const engagement = [];
+                const confusion = [];
+                const frustration = [];
+                const flow = [];
+                
+                let issuesHtml = '';
+                
+                if(data.data && data.data.length > 0) {
+                    const startTs = new Date(data.data[0].timestamp).getTime();
+                    
+                    data.data.forEach(row => {
+                        const currentTs = new Date(row.timestamp).getTime();
+                        const diffSecs = Math.round((currentTs - startTs) / 1000);
+                        
+                        // Format mm:ss
+                        const mins = Math.floor(diffSecs / 60);
+                        const secs = diffSecs % 60;
+                        const timestampStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+                        labels.push(timestampStr);
+                        
+                        // Parse values to percentages
+                        const e = (row.engagement_score || 0) * 100;
+                        const c = (row.confusion_score || 0) * 100;
+                        const f = (row.frustration_score || 0) * 100;
+                        
+                        engagement.push(e);
+                        confusion.push(c);
+                        frustration.push(f);
+                        
+                        // Composite "Study Flow" Score: 
+                        // High engagement is good (+50% weight). Lack of confusion is good (+25% weight). Lack of frustration is good (+25% weight).
+                        // This strictly bounds the score between 0 and 100 with no negative numbers.
+                        let flowScore = (e * 0.5) + ((100 - c) * 0.25) + ((100 - f) * 0.25);
+                        flow.push(flowScore);
+                        
+                        // Check for friction points (threshold > 30% for demo purposes)
+                        if ((c > 30 || f > 30) && (row.audio_text || row.screen_text)) {
+                            const isFrustration = f > c;
+                            const issueClass = isFrustration ? '' : 'confusion';
+                            const label = isFrustration ? `Frustration (${f.toFixed(0)}%)` : `Confusion (${c.toFixed(0)}%)`;
+                            
+                            let contentHtml = '';
+                            if (row.audio_text) {
+                                contentHtml += `<div class="issue-text"><strong>Heard:</strong> ${row.audio_text}</div>`;
+                            }
+                            if (row.screen_text) {
+                                // limit OCR text length for readability
+                                const screenText = row.screen_text.length > 150 ? row.screen_text.substring(0, 150) + '...' : row.screen_text;
+                                contentHtml += `<div class="issue-text"><strong>Screen:</strong> ${screenText}</div>`;
+                            }
+                            
+                            // Prepend to show newest issues first
+                            issuesHtml = `
+                            <div class="issue-item ${issueClass}">
+                                <span class="issue-time">Time: ${timestampStr} — ${label}</span>
+                                ${contentHtml}
+                            </div>
+                            ` + issuesHtml;
+                        }
+                    });
+                }
+                
+                const frictionList = document.getElementById('frictionPointsList');
+                if (issuesHtml.trim() === '') {
+                    frictionList.innerHTML = '<div class="empty-state" style="padding: 1rem;">No friction points detected yet.</div>';
+                } else {
+                    frictionList.innerHTML = issuesHtml;
+                }
+                
+                currentChartData = { labels, engagement, confusion, frustration, flow };
+                
+                // Default to Study Flow chart
+                switchChart('flow');
+                
+            } catch(e) {
+                console.error("Failed to load chart data:", e);
+            }
+        }
+
+        function switchChart(type) {
+            // Update UI tabs
+            document.querySelectorAll('.chart-tab').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.chart-tab[onclick*="${type}"]`).classList.add('active');
+            
+            const ctx = document.getElementById('analyticsChart').getContext('2d');
+            
+            let dataset = [];
+            let color = '';
+            let label = '';
+            
+            if(type === 'flow') {
+                dataset = currentChartData.flow; 
+                color = '#0b57d0'; // Google Blue
+                label = 'Study Flow Score';
+            } else if(type === 'engagement') {
+                dataset = currentChartData.engagement; 
+                color = '#146c2e'; // Green
+                label = 'Engagement %';
+            } else if(type === 'confusion') {
+                dataset = currentChartData.confusion; 
+                color = '#b3261e'; // Red
+                label = 'Confusion %';
+            } else if(type === 'frustration') {
+                dataset = currentChartData.frustration; 
+                color = '#b36b00'; // Orange
+                label = 'Frustration %';
+            }
+            
+            if(chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // Render line chart
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: currentChartData.labels,
+                    datasets: [{
+                        label: label,
+                        data: dataset,
+                        borderColor: color,
+                        backgroundColor: color + '20', // Add transparency for fill
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4, // Smooth curved lines
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: color,
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { 
+                            min: 0, 
+                            max: 100,
+                            grid: { color: '#e0e0e0', drawBorder: false },
+                            ticks: { callback: function(value) { return value + '%' } }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { 
+                            mode: 'index', 
+                            intersect: false,
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            padding: 12,
+                            titleFont: { size: 14, family: 'Inter' },
+                            bodyFont: { size: 14, family: 'Inter' },
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
+                }
+            });
+        }
+
+        // Actions
+        async function startSession() {
+            const title = nameInput.value.trim() || 'Untitled Study Session';
+            
+            try {
+                startBtn.disabled = true;
+                const res = await fetch(`${API}/start`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({title: title})
+                });
+                
+                if (res.ok) {
+                    nameInput.value = '';
+                    nameInput.disabled = true;
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'flex';
+                    globalStatus.textContent = 'Recording Live';
+                    globalStatus.className = 'status-badge recording';
+                } else {
+                    startBtn.disabled = false;
+                    alert("Failed to start recording.");
+                }
+            } catch(e) {
+                startBtn.disabled = false;
+                console.error(e);
+            }
+        }
+
+        async function stopSession() {
+            try {
+                stopBtn.disabled = true;
+                const res = await fetch(`${API}/stop`, {method: 'POST'});
+                
+                if (res.ok) {
+                    nameInput.disabled = false;
+                    stopBtn.style.display = 'none';
+                    startBtn.style.display = 'flex';
+                    startBtn.disabled = false;
+                    globalStatus.textContent = 'System Ready';
+                    globalStatus.className = 'status-badge';
+                    loadSessions();
+                } else {
+                    stopBtn.disabled = false;
+                }
+            } catch(e) {
+                stopBtn.disabled = false;
+                console.error(e);
+            }
+        }
+
+        // Data Loading
+        async function loadSessions() {
+            try {
+                const res = await fetch(`${API}/sessions`);
+                const d = await res.json();
+                
+                sessionList.innerHTML = '';
+                if (!d.sessions || d.sessions.length === 0) {
+                    sessionList.innerHTML = `<div class="empty-state">No study sessions yet. Start your first one above!</div>`;
+                    return;
+                }
+                
+                d.sessions.forEach(s => {
+                    const card = document.createElement('div');
+                    card.className = 'session-card';
+                    card.onclick = () => showDetails(s.id, s.title, s.start_time);
+                    
+                    // Format duration if end_time exists
+                    let duration = "In Progress";
+                    if (s.end_time) {
+                        const mins = Math.round((new Date(s.end_time) - new Date(s.start_time)) / 60000);
+                        duration = mins > 0 ? `${mins} min` : `< 1 min`;
+                    }
+
+                    const displayTitle = s.title || `Session #${s.id}`;
+                    
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <div class="card-title">${displayTitle}</div>
+                        </div>
+                        <div style="margin-bottom: 1rem;" class="card-date">
+                            ${new Date(s.start_time).toLocaleDateString()} at ${new Date(s.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                        <div class="card-footer">
+                            <span class="chip">${duration}</span>
+                            <span class="chip">ID: ${s.id}</span>
+                        </div>
+                    `;
+                    sessionList.appendChild(card);
+                });
+            } catch(e) {
+                sessionList.innerHTML = `<div class="empty-state">Failed to load sessions. Is the backend running?</div>`;
+            }
+        }
+
+        // Init
+        (async () => {
+            try {
+                const res = await fetch(`${API}/status`);
+                const d = await res.json();
+                if (d.is_recording) {
+                    nameInput.disabled = true;
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'flex';
+                    globalStatus.textContent = 'Recording Live';
+                    globalStatus.className = 'status-badge recording';
+                }
+            } catch(e) {}
+            loadSessions();
+        })();
+    </script>
+</body>
+</html>

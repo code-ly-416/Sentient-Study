@@ -1,0 +1,22 @@
+# Core server
+fastapi
+uvicorn
+
+
+# Video & screen capture
+opencv-python
+mss
+pillow
+
+# OCR
+easyocr
+
+# ML inference
+numpy
+torch
+torchvision
+torchaudio
+
+# Audio recording & transcription
+soundcard
+openai-whisper

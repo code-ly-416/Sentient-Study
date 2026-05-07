@@ -1,0 +1,99 @@
+"""
+SentientStudy — Simple web server.
+Run:  cd backend && python main.py
+Open: http://localhost:8000
+"""
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+import uvicorn
+import os
+
+from database import create_session, end_session, get_connection
+from capture_engine import engine
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
+
+app = FastAPI(title="SentientStudy")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- State ---
+class AppState:
+    active_session_id = None
+    is_recording = False
+    is_processing = False
+
+state = AppState()
+
+class StartRequest(BaseModel):
+    title: str = "Study Session"
+
+# --- API ---
+@app.post("/api/start")
+def start_recording(req: StartRequest):
+    if state.is_recording:
+        raise HTTPException(400, "Already recording.")
+    session_id = create_session(req.title)
+    state.active_session_id = session_id
+    state.is_recording = True
+    engine.start(session_id)
+    return {"status": "ok", "session_id": session_id}
+
+@app.post("/api/stop")
+def stop_recording():
+    if not state.is_recording:
+        raise HTTPException(400, "Not recording.")
+    end_session(state.active_session_id)
+    sid = state.active_session_id
+    state.is_recording = False
+    state.active_session_id = None
+    state.is_processing = True
+
+    def on_done():
+        state.is_processing = False
+        print("[server] Post-processing complete.")
+
+    engine.stop(on_done_callback=on_done)
+    return {"status": "ok", "session_id": sid}
+
+@app.get("/api/status")
+def get_status():
+    return {
+        "is_recording": state.is_recording,
+        "is_processing": state.is_processing,
+        "session_id": state.active_session_id,
+    }
+
+@app.get("/api/sessions")
+def get_sessions():
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM sessions ORDER BY id DESC").fetchall()
+    conn.close()
+    return {"sessions": [dict(r) for r in rows]}
+
+@app.get("/api/results/{session_id}")
+def get_results(session_id: int):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM session_data WHERE session_id=? ORDER BY timestamp", (session_id,)
+    ).fetchall()
+    conn.close()
+    return {"data": [dict(r) for r in rows]}
+
+# Serve frontend (must be last)
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+
+if __name__ == "__main__":
+    print("=" * 40)
+    print("  SentientStudy — http://localhost:8000")
+    print("=" * 40)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
