@@ -17,7 +17,21 @@ from capture_engine import engine
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
 
+import shutil
+
 app = FastAPI(title="SentientStudy")
+
+@app.on_event("startup")
+def cleanup_legacy_temp_files():
+    temp_dir = os.path.join(PROJECT_ROOT, "data", "temp")
+    if os.path.exists(temp_dir):
+        print(f"[server] Cleaning up legacy temp directory: {temp_dir}")
+        try:
+            shutil.rmtree(temp_dir)
+            os.makedirs(temp_dir, exist_ok=True)
+            print("[server] Cleanup complete.")
+        except Exception as e:
+            print(f"[server] Failed to clean up temp dir: {e}")
 
 app.add_middleware(
     CORSMiddleware,
