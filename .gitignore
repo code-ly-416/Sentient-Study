@@ -37,6 +37,7 @@ venv.bak/
 
 # Data and Temp files
 data/
+temp/
 
 # OS
 .DS_Store
