@@ -7,6 +7,18 @@
 // Initialize when api.js has loaded
 
 /**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} str - String to escape
+ * @returns {string} - Escaped string safe for HTML insertion
+ */
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
+/**
  * Fetch and render the analytics chart for a session
  */
 async function fetchAndRenderChart(sessionId) {
@@ -60,12 +72,16 @@ async function fetchAndRenderChart(sessionId) {
 
                     let contentHtml = '';
                     if (row.audio_text) {
-                        contentHtml += `<div class="issue-text"><strong>Heard:</strong> ${row.audio_text}</div>`;
+                        // ESCAPE user-generated content to prevent XSS
+                        const escapedAudio = escapeHTML(row.audio_text);
+                        contentHtml += `<div class="issue-text"><strong>Heard:</strong> ${escapedAudio}</div>`;
                     }
                     if (row.screen_text) {
                         // limit OCR text length for readability
                         const screenText = row.screen_text.length > 150 ? row.screen_text.substring(0, 150) + '...' : row.screen_text;
-                        contentHtml += `<div class="issue-text"><strong>Screen:</strong> ${screenText}</div>`;
+                        // ESCAPE user-generated content to prevent XSS
+                        const escapedScreen = escapeHTML(screenText);
+                        contentHtml += `<div class="issue-text"><strong>Screen:</strong> ${escapedScreen}</div>`;
                     }
 
                     // Prepend to show newest issues first

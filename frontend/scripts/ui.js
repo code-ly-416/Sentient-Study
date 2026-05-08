@@ -13,6 +13,18 @@ let loadSessionsLock = false; // Atomic flag: true if currently loading
 let loadCount = 0; // Track how many times function is called
 
 /**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} str - String to escape
+ * @returns {string} - Escaped string safe for HTML insertion
+ */
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
+/**
  * Load and display sessions on dashboard
  * - Only shows sessions that have ended (end_time is not null)
  * - Shows "Processing..." for sessions that are being processed
@@ -100,13 +112,18 @@ async function loadAndDisplaySessions() {
 
                     if (isThisProcessing) {
                         // Processing state - unclickable with processing indicator
+                        // Use escapeHTML for user-generated data
+                        const escapedTitle = escapeHTML(displayTitle);
+                        const escapedDate = escapeHTML(new Date(s.start_time).toLocaleDateString());
+                        const escapedTime = escapeHTML(new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                        
                         html += `
                             <div class="session-card" style="opacity: 0.6; cursor: not-allowed;" data-session-id="${s.id}">
                                 <div class="card-header">
-                                    <div class="card-title">${displayTitle}</div>
+                                    <div class="card-title">${escapedTitle}</div>
                                 </div>
                                 <div style="margin-bottom: 1rem;" class="card-date">
-                                    ${new Date(s.start_time).toLocaleDateString()} at ${new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    ${escapedDate} at ${escapedTime}
                                 </div>
                                 <div class="card-footer">
                                     <span class="chip">${duration}</span>
@@ -117,13 +134,19 @@ async function loadAndDisplaySessions() {
                         `;
                     } else {
                         // Normal state - clickable
+                        // Use escapeHTML for user-generated data
+                        const escapedTitle = escapeHTML(displayTitle);
+                        const escapedDate = escapeHTML(new Date(s.start_time).toLocaleDateString());
+                        const escapedTime = escapeHTML(new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                        
+                        // Use a safe onclick handler that doesn't embed data in the HTML string
                         html += `
-                            <div class="session-card" onclick="goToDetails(${s.id}, '${displayTitle.replace(/'/g, "\\'")}', '${s.start_time}')" data-session-id="${s.id}">
+                            <div class="session-card" data-session-id="${s.id}" data-session-title="${encodeURIComponent(displayTitle)}" data-session-start="${encodeURIComponent(s.start_time)}">
                                 <div class="card-header">
-                                    <div class="card-title">${displayTitle}</div>
+                                    <div class="card-title">${escapedTitle}</div>
                                 </div>
                                 <div style="margin-bottom: 1rem;" class="card-date">
-                                    ${new Date(s.start_time).toLocaleDateString()} at ${new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    ${escapedDate} at ${escapedTime}
                                 </div>
                                 <div class="card-footer">
                                     <span class="chip">${duration}</span>
@@ -141,6 +164,18 @@ async function loadAndDisplaySessions() {
             // Set innerHTML ONCE (prevents duplicate appends)
             console.log(`[loadSessions] Call #${currentCall}: Setting innerHTML with ${sessionCount} sessions`);
             sessionList.innerHTML = html;
+            
+            // Now attach click handlers safely using addEventListener
+            if (!isProcessing) {
+                sessionList.querySelectorAll('.session-card[data-session-id]').forEach(card => {
+                    const sessionId = card.dataset.sessionId;
+                    const title = decodeURIComponent(card.dataset.sessionTitle || '');
+                    const startTime = decodeURIComponent(card.dataset.sessionStart || '');
+                    
+                    card.style.cursor = 'pointer';
+                    card.onclick = () => goToDetails(sessionId, title, startTime);
+                });
+            }
 
         } catch (e) {
             const sessionList = AppState.elements.sessionList;
@@ -202,6 +237,7 @@ async function initializeDetailsPage() {
     const detailDate = document.getElementById('detailDate');
 
     if (detailTitle) {
+        // Use textContent for safe rendering
         detailTitle.textContent = decodeURIComponent(title) || `Session #${sessionId}`;
     }
     if (detailDate && startTime) {
@@ -231,6 +267,7 @@ function initializeDeleteConfirmationPage() {
     const confirmMessage = document.getElementById('confirmMessage');
 
     if (confirmTitle) {
+        // Use textContent for safe rendering
         confirmTitle.textContent = `Delete Session #${sessionId}`;
     }
     if (confirmMessage) {
