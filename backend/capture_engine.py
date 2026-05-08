@@ -6,6 +6,7 @@ import cv2
 import threading
 import time
 import os
+import concurrent.futures
 
 # Prevent OpenMP crash when multiple libraries load libiomp5md.dll (e.g. PyTorch + EasyOCR/Numpy)
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -29,6 +30,9 @@ class CaptureEngine:
         self._session_id = None
         self._start_ts = None
         self._threads = []
+        
+        # Create ThreadPoolExecutor for managed thread execution
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         
         print("\n" + "="*50)
         print("[engine] Loading AI Models into memory...")
@@ -78,11 +82,14 @@ class CaptureEngine:
         print(f"[capture] Stopping session {self._session_id}")
         self._recording = False
         
-        # Real-time processing means we just wait for the current 10s chunk to finish
-        for t in self._threads:
-            t.join(timeout=11)
-            
+        # Gracefully shutdown the executor, waiting for all tasks to complete
+        print(f"[capture] Waiting for all processing tasks to complete...")
+        self.executor.shutdown(wait=True)
         print(f"[capture] Session {self._session_id} completely stopped.")
+        
+        # Re-initialize the executor for the next session
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        
         if on_done_callback:
             on_done_callback()
 
@@ -144,11 +151,8 @@ class CaptureEngine:
                 # --- 4. Process the Chunk ---
                 audio_data = audio_buffer_container[0].flatten() if audio_buffer_container else np.zeros(int(10 * audio_sr), dtype='float32')
                 
-                threading.Thread(
-                    target=self._process_chunk,
-                    args=(self._session_id, chunk_start, frames, audio_data, img),
-                    daemon=True
-                ).start()
+                # Use ThreadPoolExecutor instead of raw threading.Thread
+                self.executor.submit(self._process_chunk, self._session_id, chunk_start, frames, audio_data, img)
                 
         cap.release()
 
