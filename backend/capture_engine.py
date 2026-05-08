@@ -193,6 +193,7 @@ class CaptureEngine:
                 print(f"[ocr] error: {e}")
                 
         # 4. Save to DB
+        conn = None
         try:
             conn = get_connection()
             conn.execute(
@@ -200,9 +201,11 @@ class CaptureEngine:
                 (session_id, ts, es, cs_, fs, ocr_text, aud_text),
             )
             conn.commit()
-            conn.close()
             print(f"[chunk] Processed 10s chunk at offset {offset_seconds}s (OCR: {len(ocr_text)} chars, Audio: {len(aud_text)} chars)")
         except Exception as e:
             print(f"[db] error: {e}")
+        finally:
+            if conn:
+                conn.close()
 
 engine = CaptureEngine()

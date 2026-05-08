@@ -48,8 +48,19 @@ function initializeDOM() {
  */
 async function fetchSessions() {
     try {
-        const res = await fetch(`${AppState.API_URL}/sessions`);
+        const res = await fetch(`${AppState.API_URL}/sessions?_=${Date.now()}`, {
+            cache: 'no-cache'
+        });
         const data = await res.json();
+        console.log('[fetchSessions] Got sessions from backend:', data.sessions?.length || 0, 'sessions');
+        if (data.sessions) {
+            // Check for duplicate IDs in the response
+            const ids = data.sessions.map(s => s.id);
+            const uniqueIds = [...new Set(ids)];
+            if (ids.length !== uniqueIds.length) {
+                console.warn('[fetchSessions] Backend returned duplicate session IDs!', ids);
+            }
+        }
         return data.sessions || [];
     } catch (error) {
         console.error('Failed to fetch sessions:', error);
@@ -95,10 +106,14 @@ async function apiStartSession(title) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: title })
         });
-        return res.ok;
+        if (res.ok) {
+            const data = await res.json();
+            return { ok: true, sessionId: data.session_id };
+        }
+        return { ok: false };
     } catch (error) {
         console.error('Failed to start session:', error);
-        return false;
+        return { ok: false };
     }
 }
 
@@ -110,10 +125,14 @@ async function apiStopSession() {
         const res = await fetch(`${AppState.API_URL}/stop`, {
             method: 'POST'
         });
-        return res.ok;
+        if (res.ok) {
+            const data = await res.json();
+            return { ok: true, sessionId: data.session_id };
+        }
+        return { ok: false };
     } catch (error) {
         console.error('Failed to stop session:', error);
-        return false;
+        return { ok: false };
     }
 }
 

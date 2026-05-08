@@ -95,30 +95,43 @@ def get_status():
 
 @app.get("/api/sessions")
 def get_sessions():
-    conn = get_connection()
-    rows = conn.execute("SELECT * FROM sessions ORDER BY id DESC").fetchall()
-    conn.close()
-    return {"sessions": [dict(r) for r in rows]}
+    conn = None
+    try:
+        conn = get_connection()
+        # Use DISTINCT to avoid duplicates (though id is primary key, just in case)
+        rows = conn.execute("SELECT DISTINCT * FROM sessions ORDER BY id DESC").fetchall()
+        return {"sessions": [dict(r) for r in rows]}
+    finally:
+        if conn:
+            conn.close()
 
 @app.delete("/api/sessions/{session_id}")
 def delete_session(session_id: int):
-    conn = get_connection()
-    # First delete related session_data
-    conn.execute("DELETE FROM session_data WHERE session_id=?", (session_id,))
-    # Then delete the session itself
-    conn.execute("DELETE FROM sessions WHERE id=?", (session_id,))
-    conn.commit()
-    conn.close()
-    return {"status": "ok", "message": f"Session {session_id} deleted"}
+    conn = None
+    try:
+        conn = get_connection()
+        # First delete related session_data
+        conn.execute("DELETE FROM session_data WHERE session_id=?", (session_id,))
+        # Then delete the session itself
+        conn.execute("DELETE FROM sessions WHERE id=?", (session_id,))
+        conn.commit()
+        return {"status": "ok", "message": f"Session {session_id} deleted"}
+    finally:
+        if conn:
+            conn.close()
 
 @app.get("/api/results/{session_id}")
 def get_results(session_id: int):
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM session_data WHERE session_id=? ORDER BY timestamp", (session_id,)
-    ).fetchall()
-    conn.close()
-    return {"data": [dict(r) for r in rows]}
+    conn = None
+    try:
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT * FROM session_data WHERE session_id=? ORDER BY timestamp", (session_id,)
+        ).fetchall()
+        return {"data": [dict(r) for r in rows]}
+    finally:
+        if conn:
+            conn.close()
 
 # Serve static files (must be last)
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

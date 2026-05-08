@@ -3,63 +3,160 @@
  * Depends on: api.js, charts.js
  */
 
+// Store the session ID that is currently being processed
+window.processingSessionId = null;
+let statusPollInterval = null;
+
+// Use a promise-based lock for loading sessions
+let loadSessionsPromise = null;
+let loadSessionsLock = false; // Atomic flag: true if currently loading
+let loadCount = 0; // Track how many times function is called
+
 /**
  * Load and display sessions on dashboard
+ * - Only shows sessions that have ended (end_time is not null)
+ * - Shows "Processing..." for sessions that are being processed
  */
 async function loadAndDisplaySessions() {
-    try {
-        const sessions = await fetchSessions();
-        const sessionList = AppState.elements.sessionList;
+    loadCount++;
+    const currentCall = loadCount;
+    console.log(`[loadSessions] Call #${currentCall} started`);
 
-        if (!sessionList) {
-            console.error('sessionList element not found');
-            return;
+    // Atomic check-and-set for the lock
+    if (loadSessionsLock) {
+        console.log(`[loadSessions] Call #${currentCall}: Already loading (lock=true), waiting for existing promise...`);
+        if (loadSessionsPromise) {
+            return loadSessionsPromise;
         }
+        return; // No promise to wait for
+    }
 
-        sessionList.innerHTML = '';
-        if (!sessions || sessions.length === 0) {
-            sessionList.innerHTML = `<div class="empty-state">No study sessions yet. Start your first one above!</div>`;
-            return;
-        }
+    // Acquire lock
+    loadSessionsLock = true;
+    console.log(`[loadSessions] Call #${currentCall}: Acquired lock, starting load...`);
 
-        sessions.forEach(s => {
-            const card = document.createElement('div');
-            card.className = 'session-card';
-            card.onclick = () => goToDetails(s.id, s.title, s.start_time);
+    // Create the promise
+    loadSessionsPromise = (async () => {
+        try {
+            const sessions = await fetchSessions();
+            const sessionList = AppState.elements.sessionList;
 
-            // Format duration if end_time exists
-            let duration = "In Progress";
-            if (s.end_time) {
-                const mins = Math.round((new Date(s.end_time) - new Date(s.start_time)) / 60000);
-                duration = mins > 0 ? `${mins} min` : `< 1 min`;
+            if (!sessionList) {
+                console.error('[loadSessions] sessionList element not found');
+                return;
             }
 
-            const displayTitle = s.title || `Session #${s.id}`;
+            // Build HTML string to avoid duplicate appends
+            let html = '';
+            let sessionCount = 0;
 
-            card.innerHTML = `
-                <div class="card-header">
-                    <div class="card-title">${displayTitle}</div>
-                </div>
-                <div style="margin-bottom: 1rem;" class="card-date">
-                    ${new Date(s.start_time).toLocaleDateString()} at ${new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-                <div class="card-footer">
-                    <span class="chip">${duration}</span>
-                    <span class="chip">ID: ${s.id}</span>
-                    <button class="delete-btn" onclick="goToDeleteConfirmation(${s.id}, event); event.stopPropagation();">
-                        <span class="material-symbols-rounded">delete</span>
-                    </button>
-                </div>
-            `;
-            sessionList.appendChild(card);
-        });
-    } catch (e) {
-        const sessionList = AppState.elements.sessionList;
-        if (sessionList) {
-            sessionList.innerHTML = `<div class="empty-state">Failed to load sessions. Is the backend running?</div>`;
+            if (!sessions || sessions.length === 0) {
+                html = `<div class="empty-state">No study sessions yet. Start your first one above!</div>`;
+            } else {
+                // Fetch backend status to check if processing
+                const status = await fetchBackendStatus();
+                const isProcessing = status && status.is_processing;
+
+                // If backend is processing but we don't know which session, try to figure it out
+                if (isProcessing && !window.processingSessionId) {
+                    const recentSession = sessions.find(s => s.end_time);
+                    if (recentSession) {
+                        window.processingSessionId = recentSession.id;
+                        console.log(`[loadSessions] Detected processing session: ${recentSession.id}`);
+                        startStatusPolling();
+                    }
+                }
+
+                // Track rendered session IDs to avoid duplicates
+                const renderedIds = new Set();
+
+                sessions.forEach(s => {
+                    // Skip sessions that are still recording (no end_time)
+                    if (!s.end_time) {
+                        console.log(`[loadSessions] Skipping session ${s.id} (no end_time)`);
+                        return;
+                    }
+
+                    // Avoid duplicates: if this session ID already rendered, skip
+                    if (renderedIds.has(s.id)) {
+                        console.warn(`[loadSessions] Duplicate session ID detected and skipped: ${s.id}`);
+                        return;
+                    }
+                    renderedIds.add(s.id);
+                    sessionCount++;
+                    console.log(`[loadSessions] Rendering session ${s.id} (${s.title})`);
+
+                    // Format duration
+                    let duration = "0 min";
+                    if (s.end_time) {
+                        const mins = Math.round((new Date(s.end_time) - new Date(s.start_time)) / 60000);
+                        duration = mins > 0 ? `${mins} min` : `< 1 min`;
+                    }
+
+                    const displayTitle = s.title || `Session #${s.id}`;
+
+                    // Check if this session is being processed
+                    const isThisProcessing = isProcessing && window.processingSessionId === s.id;
+
+                    if (isThisProcessing) {
+                        // Processing state - unclickable with processing indicator
+                        html += `
+                            <div class="session-card" style="opacity: 0.6; cursor: not-allowed;" data-session-id="${s.id}">
+                                <div class="card-header">
+                                    <div class="card-title">${displayTitle}</div>
+                                </div>
+                                <div style="margin-bottom: 1rem;" class="card-date">
+                                    ${new Date(s.start_time).toLocaleDateString()} at ${new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                <div class="card-footer">
+                                    <span class="chip">${duration}</span>
+                                    <span class="chip">Processing...</span>
+                                    <div class="spinner" style="width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Normal state - clickable
+                        html += `
+                            <div class="session-card" onclick="goToDetails(${s.id}, '${displayTitle.replace(/'/g, "\\'")}', '${s.start_time}')" data-session-id="${s.id}">
+                                <div class="card-header">
+                                    <div class="card-title">${displayTitle}</div>
+                                </div>
+                                <div style="margin-bottom: 1rem;" class="card-date">
+                                    ${new Date(s.start_time).toLocaleDateString()} at ${new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                <div class="card-footer">
+                                    <span class="chip">${duration}</span>
+                                    <span class="chip">ID: ${s.id}</span>
+                                    <button class="delete-btn" onclick="event.stopPropagation(); goToDeleteConfirmation(${s.id}, event)">
+                                        <span class="material-symbols-rounded">delete</span>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            // Set innerHTML ONCE (prevents duplicate appends)
+            console.log(`[loadSessions] Call #${currentCall}: Setting innerHTML with ${sessionCount} sessions`);
+            sessionList.innerHTML = html;
+
+        } catch (e) {
+            const sessionList = AppState.elements.sessionList;
+            if (sessionList) {
+                sessionList.innerHTML = `<div class="empty-state">Failed to load sessions. Is the backend running?</div>`;
+            }
+            console.error('[loadSessions] Error:', e);
+        } finally {
+            // Release lock
+            loadSessionsLock = false;
+            loadSessionsPromise = null;
+            console.log(`[loadSessions] Call #${currentCall}: Released lock`);
         }
-        console.error(e);
-    }
+    })();
+
+    return loadSessionsPromise;
 }
 
 /**
@@ -160,42 +257,107 @@ async function confirmDelete() {
 }
 
 /**
- * Start a new recording session
+ * Show new session modal
  */
-async function startSession() {
-    const title = AppState.elements.nameInput ? AppState.elements.nameInput.value.trim() : '';
+function showNewSessionModal() {
+    const modal = document.getElementById('newSessionModal');
+    const input = document.getElementById('sessionNameInput');
+    if (modal) {
+        modal.style.display = 'flex';
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+    }
+}
+
+/**
+ * Close modal when clicking on overlay (but not on modal content)
+ */
+function closeModalOnOverlay(event) {
+    const modal = document.getElementById('newSessionModal');
+    // Only close if clicking directly on the overlay
+    if (event.target === modal) {
+        cancelNewSession();
+    }
+}
+
+/**
+ * Cancel new session - close modal and clear input
+ */
+function cancelNewSession() {
+    const modal = document.getElementById('newSessionModal');
+    const input = document.getElementById('sessionNameInput');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    if (input) {
+        input.value = '';
+    }
+}
+
+// Flag to prevent double-clicks on confirm
+let isConfirmingSession = false;
+
+/**
+ * Confirm new session - start session with entered title
+ */
+async function confirmNewSession() {
+    if (isConfirmingSession) {
+        console.log('[confirmNewSession] Already confirming, skipping...');
+        return;
+    }
+
+    const input = document.getElementById('sessionNameInput');
+    if (!input) return;
+
+    const title = input.value.trim();
     const sessionTitle = title || 'Untitled Study Session';
 
-    try {
-        if (AppState.elements.startBtn) {
-            AppState.elements.startBtn.disabled = true;
-        }
-        const success = await apiStartSession(sessionTitle);
+    // Get references to buttons
+    const newSessionBtn = document.getElementById('newSessionBtn');
+    const stopBtn = document.getElementById('stopBtn');
 
-        if (success) {
-            if (AppState.elements.nameInput) {
-                AppState.elements.nameInput.value = '';
-                AppState.elements.nameInput.disabled = true;
+    try {
+        isConfirmingSession = true;
+
+        if (newSessionBtn) {
+            newSessionBtn.disabled = true;
+        }
+
+        const result = await apiStartSession(sessionTitle);
+
+        if (result && result.ok) {
+            // Close modal and clear input
+            const modal = document.getElementById('newSessionModal');
+            if (modal) {
+                modal.style.display = 'none';
             }
-            if (AppState.elements.startBtn) {
-                AppState.elements.startBtn.style.display = 'none';
+            input.value = '';
+
+            // Update UI for recording state
+            if (newSessionBtn) {
+                newSessionBtn.style.display = 'none';
             }
-            if (AppState.elements.stopBtn) {
-                AppState.elements.stopBtn.style.display = 'flex';
+            if (stopBtn) {
+                stopBtn.style.display = 'flex';
             }
             updateStatusBadge(true);
             AppState.isRecording = true;
+
+            // Don't reload sessions list while recording
+            // Sessions should only appear after stopping
         } else {
-            if (AppState.elements.startBtn) {
-                AppState.elements.startBtn.disabled = false;
-            }
             alert("Failed to start recording.");
         }
     } catch (e) {
-        if (AppState.elements.startBtn) {
-            AppState.elements.startBtn.disabled = false;
+        console.error('[confirmNewSession] Error:', e);
+        alert("Error starting session.");
+    } finally {
+        if (newSessionBtn) {
+            newSessionBtn.disabled = false;
         }
-        console.error(e);
+        isConfirmingSession = false;
     }
 }
 
@@ -203,37 +365,75 @@ async function startSession() {
  * Stop the current recording session
  */
 async function stopSession() {
-    try {
-        if (AppState.elements.stopBtn) {
-            AppState.elements.stopBtn.disabled = true;
-        }
-        const success = await apiStopSession();
+    const stopBtn = document.getElementById('stopBtn');
+    const newSessionBtn = document.getElementById('newSessionBtn');
 
-        if (success) {
-            if (AppState.elements.nameInput) {
-                AppState.elements.nameInput.disabled = false;
+    try {
+        if (stopBtn) {
+            stopBtn.disabled = true;
+        }
+
+        const result = await apiStopSession();
+
+        if (result && result.ok) {
+            // Set the processing session ID
+            window.processingSessionId = result.sessionId;
+
+            // Update UI
+            if (stopBtn) {
+                stopBtn.style.display = 'none';
             }
-            if (AppState.elements.stopBtn) {
-                AppState.elements.stopBtn.style.display = 'none';
-            }
-            if (AppState.elements.startBtn) {
-                AppState.elements.startBtn.style.display = 'flex';
-                AppState.elements.startBtn.disabled = false;
+            if (newSessionBtn) {
+                newSessionBtn.style.display = 'flex';
+                newSessionBtn.disabled = false;
             }
             updateStatusBadge(false);
             AppState.isRecording = false;
-            loadAndDisplaySessions();
+
+            // Reload sessions list to show the stopped session with "Processing..." state
+            await loadAndDisplaySessions();
+
+            // Start polling for processing completion
+            startStatusPolling();
         } else {
-            if (AppState.elements.stopBtn) {
-                AppState.elements.stopBtn.disabled = false;
+            if (stopBtn) {
+                stopBtn.disabled = false;
             }
+            alert("Failed to stop recording.");
         }
     } catch (e) {
-        if (AppState.elements.stopBtn) {
-            AppState.elements.stopBtn.disabled = false;
+        if (stopBtn) {
+            stopBtn.disabled = false;
         }
-        console.error(e);
+        console.error('[stopSession] Error:', e);
     }
+}
+
+/**
+ * Start polling backend status to detect when processing is complete
+ */
+function startStatusPolling() {
+    // Clear any existing interval
+    if (statusPollInterval) {
+        clearInterval(statusPollInterval);
+    }
+
+    statusPollInterval = setInterval(async () => {
+        try {
+            const status = await fetchBackendStatus();
+            if (status && !status.is_processing) {
+                // Processing complete
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+                window.processingSessionId = null;
+
+                // Reload sessions list to show normal state
+                await loadAndDisplaySessions();
+            }
+        } catch (e) {
+            console.error('[polling] Error:', e);
+        }
+    }, 2000); // Poll every 2 seconds
 }
 
 /**
@@ -257,33 +457,41 @@ function updateStatusBadge(isRecording) {
  */
 function updateUIForRecording(isRecording) {
     AppState.isRecording = isRecording;
+    const newSessionBtn = document.getElementById('newSessionBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
     if (isRecording) {
-        if (AppState.elements.nameInput) {
-            AppState.elements.nameInput.disabled = true;
+        if (newSessionBtn) {
+            newSessionBtn.style.display = 'none';
         }
-        if (AppState.elements.startBtn) {
-            AppState.elements.startBtn.style.display = 'none';
-        }
-        if (AppState.elements.stopBtn) {
-            AppState.elements.stopBtn.style.display = 'flex';
+        if (stopBtn) {
+            stopBtn.style.display = 'flex';
         }
         updateStatusBadge(true);
     } else {
-        if (AppState.elements.nameInput) {
-            AppState.elements.nameInput.disabled = false;
+        if (stopBtn) {
+            stopBtn.style.display = 'none';
         }
-        if (AppState.elements.stopBtn) {
-            AppState.elements.stopBtn.style.display = 'none';
-        }
-        if (AppState.elements.startBtn) {
-            AppState.elements.startBtn.style.display = 'flex';
+        if (newSessionBtn) {
+            newSessionBtn.style.display = 'flex';
         }
         updateStatusBadge(false);
     }
 }
 
+// Add CSS animation for spinner
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+
 // Page-specific initialization
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('[init] DOMContentLoaded fired');
     initializeDOM();
 
     const pathname = window.location.pathname;
@@ -297,3 +505,22 @@ document.addEventListener('DOMContentLoaded', function() {
         loadAndDisplaySessions();
     }
 });
+
+// Handle bfcache (back-forward cache) - force reload if page is loaded from cache
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        console.log('[init] Page loaded from bfcache, forcing reload...');
+        window.location.reload();
+    }
+});
+
+// Add random query parameter to script tags to prevent caching
+(function() {
+    const scripts = document.querySelectorAll('script[src]');
+    scripts.forEach(script => {
+        const src = script.getAttribute('src');
+        if (src && !src.includes('?v=')) {
+            script.setAttribute('src', src + '?v=' + Date.now());
+        }
+    });
+})();
