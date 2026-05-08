@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentient Study</title>
+    <title>Sentient Study - Session Details</title>
 
     <!-- Google Fonts: Inter and Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,33 +28,9 @@
     </header>
 
     <div class="container">
-
-        <!-- DASHBOARD VIEW -->
-        <div id="dashboardView" class="view active">
-            <!-- Control Panel -->
-            <div class="control-panel">
-                <div class="input-group">
-                    <input type="text" id="sessionNameInput" placeholder="What are you studying right now? (e.g. Calculus Chapter 4)" />
-                </div>
-                <button id="startBtn" class="btn-primary" onclick="startSession()">
-                    <span class="material-symbols-rounded">play_arrow</span>
-                    Start Session
-                </button>
-                <button id="stopBtn" class="btn-danger" style="display: none;" onclick="stopSession()">
-                    <span class="material-symbols-rounded">stop</span>
-                    Stop Recording
-                </button>
-            </div>
-
-            <h2>Recent Sessions</h2>
-            <div class="grid" id="sessionList">
-                <div class="empty-state">Loading your sessions...</div>
-            </div>
-        </div>
-
         <!-- SESSION DETAILS VIEW -->
-        <div id="detailsView" class="view">
-            <button class="back-btn" onclick="showDashboard()">
+        <div id="detailsView" class="view active">
+            <button class="back-btn" onclick="goToDashboard()">
                 <span class="material-symbols-rounded">arrow_back</span>
                 Back to Dashboard
             </button>
@@ -98,7 +74,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 
     <!-- External JavaScript Files - Loaded in order: API, Charts, UI -->

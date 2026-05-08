@@ -81,10 +81,12 @@ async function fetchAndRenderChart(sessionId) {
 
         // Update friction points display
         const frictionList = document.getElementById('frictionPointsList');
-        if (issuesHtml.trim() === '') {
-            frictionList.innerHTML = '<div class="empty-state" style="padding: 1rem;">No friction points detected yet.</div>';
-        } else {
-            frictionList.innerHTML = issuesHtml;
+        if (frictionList) {
+            if (issuesHtml.trim() === '') {
+                frictionList.innerHTML = '<div class="empty-state" style="padding: 1rem;">No friction points detected yet.</div>';
+            } else {
+                frictionList.innerHTML = issuesHtml;
+            }
         }
 
         // Store chart data in AppState for switching
@@ -104,9 +106,17 @@ async function fetchAndRenderChart(sessionId) {
 function switchChart(type) {
     // Update UI tabs
     document.querySelectorAll('.chart-tab').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`.chart-tab[onclick*="${type}"]`).classList.add('active');
+    const activeTab = document.querySelector(`.chart-tab[onclick*="${type}"]`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+    }
 
-    const ctx = document.getElementById('analyticsChart').getContext('2d');
+    const ctx = document.getElementById('analyticsChart');
+    if (!ctx) {
+        console.error('Canvas element not found');
+        return;
+    }
+    const context = ctx.getContext('2d');
 
     let dataset = [];
     let color = '';
@@ -135,7 +145,7 @@ function switchChart(type) {
     }
 
     // Render line chart
-    AppState.chartInstance = new Chart(ctx, {
+    AppState.chartInstance = new Chart(context, {
         type: 'line',
         data: {
             labels: AppState.chartData.labels,
@@ -162,7 +172,7 @@ function switchChart(type) {
                     min: 0,
                     max: 100,
                     grid: { color: '#e0e0e0', drawBorder: false },
-                    ticks: { callback: function (value) { return value + '%' } }
+                    ticks: { callback: function (value) { return value + '%'; } }
                 },
                 x: {
                     grid: { display: false }

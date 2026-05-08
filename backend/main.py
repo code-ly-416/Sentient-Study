@@ -1,12 +1,13 @@
 """
-SentientStudy — Simple web server.
-Run:  cd backend && python main.py
+SentientStudy - Simple web server.
+Run: cd backend && python main.py
 Open: http://localhost:8000
 """
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uvicorn
 import os
@@ -51,6 +52,11 @@ state = AppState()
 class StartRequest(BaseModel):
     title: str = "Study Session"
 
+# --- Routes ---
+@app.get("/")
+def read_root():
+    return FileResponse(os.path.join(FRONTEND_DIR, "dashboard.html"))
+
 # --- API ---
 @app.post("/api/start")
 def start_recording(req: StartRequest):
@@ -94,6 +100,17 @@ def get_sessions():
     conn.close()
     return {"sessions": [dict(r) for r in rows]}
 
+@app.delete("/api/sessions/{session_id}")
+def delete_session(session_id: int):
+    conn = get_connection()
+    # First delete related session_data
+    conn.execute("DELETE FROM session_data WHERE session_id=?", (session_id,))
+    # Then delete the session itself
+    conn.execute("DELETE FROM sessions WHERE id=?", (session_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "message": f"Session {session_id} deleted"}
+
 @app.get("/api/results/{session_id}")
 def get_results(session_id: int):
     conn = get_connection()
@@ -103,11 +120,11 @@ def get_results(session_id: int):
     conn.close()
     return {"data": [dict(r) for r in rows]}
 
-# Serve frontend (must be last)
+# Serve static files (must be last)
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 
 if __name__ == "__main__":
     print("=" * 40)
-    print("  SentientStudy — http://localhost:8000")
+    print("  SentientStudy - http://localhost:8000")
     print("=" * 40)
     uvicorn.run(app, host="127.0.0.1", port=8000)

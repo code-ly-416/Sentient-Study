@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentient Study - Dashboard</title>
+
+    <!-- Google Fonts: Inter and Material Symbols -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="styles/main.css">
+
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <span class="material-symbols-rounded">psychology</span>
+            SentientStudy
+        </div>
+        <div id="globalStatus" class="status-badge">System Ready</div>
+    </header>
+
+    <div class="container">
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboardView" class="view active">
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <div class="input-group">
+                    <input type="text" id="sessionNameInput" placeholder="What are you studying right now? (e.g. Calculus Chapter 4)" />
+                </div>
+                <button id="startBtn" class="btn-primary" onclick="startSession()">
+                    <span class="material-symbols-rounded">play_arrow</span>
+                    Start Session
+                </button>
+                <button id="stopBtn" class="btn-danger" style="display: none;" onclick="stopSession()">
+                    <span class="material-symbols-rounded">stop</span>
+                    Stop Recording
+                </button>
+            </div>
+
+            <h2>Recent Sessions</h2>
+            <div class="grid" id="sessionList">
+                <div class="empty-state">Loading your sessions...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External JavaScript Files - Loaded in order: API, Charts, UI -->
+    <script src="scripts/api.js"></script>
+    <script src="scripts/charts.js"></script>
+    <script src="scripts/ui.js"></script>
+</body>
+</html>

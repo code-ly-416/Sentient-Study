@@ -9,7 +9,7 @@ window.AppState = {
     isRecording: false,
     currentSessionId: null,
 
-    // DOM Elements
+    // DOM Elements - will be initialized when page loads
     elements: {
         dashboardView: null,
         detailsView: null,
@@ -31,7 +31,7 @@ window.AppState = {
 };
 
 /**
- * Initialize DOM element references
+ * Initialize DOM element references for current page
  */
 function initializeDOM() {
     AppState.elements.dashboardView = document.getElementById('dashboardView');
@@ -118,6 +118,21 @@ async function apiStopSession() {
 }
 
 /**
+ * Delete a session
+ */
+async function apiDeleteSession(sessionId) {
+    try {
+        const res = await fetch(`${AppState.API_URL}/sessions/${sessionId}`, {
+            method: 'DELETE'
+        });
+        return res.ok;
+    } catch (error) {
+        console.error('Failed to delete session:', error);
+        return false;
+    }
+}
+
+/**
  * Application initialization
  * Called once when page loads
  */
@@ -130,8 +145,10 @@ async function appInitialize() {
         updateUIForRecording(true);
     }
 
-    // Load initial sessions
-    await loadAndDisplaySessions();
+    // If we're on the dashboard page, load sessions
+    if (window.location.pathname === '/' || window.location.pathname.includes('dashboard.html')) {
+        await loadAndDisplaySessions();
+    }
 }
 
 // Auto-initialize when DOM is ready
