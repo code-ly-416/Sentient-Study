@@ -19,11 +19,10 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
 
 import shutil
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="SentientStudy")
-
-@app.on_event("startup")
-def cleanup_legacy_temp_files():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     temp_dir = os.path.join(PROJECT_ROOT, "data", "temp")
     if os.path.exists(temp_dir):
         print(f"[server] Cleaning up legacy temp directory: {temp_dir}")
@@ -45,6 +44,10 @@ def cleanup_legacy_temp_files():
     finally:
         if 'conn' in locals() and conn:
             conn.close()
+
+    yield
+
+app = FastAPI(title="SentientStudy", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

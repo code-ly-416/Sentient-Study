@@ -26,7 +26,7 @@ window.AppState = {
         engagement: [],
         confusion: [],
         frustration: [],
-        flow: []
+        rawData: []
     }
 };
 

@@ -7,18 +7,6 @@
 // Initialize when api.js has loaded
 
 /**
- * Escape HTML special characters to prevent XSS
- * @param {string} str - String to escape
- * @returns {string} - Escaped string safe for HTML insertion
- */
-function escapeHTML(str) {
-    if (str === null || str === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(str);
-    return div.innerHTML;
-}
-
-/**
  * Fetch and render the analytics chart for a session
  */
 async function fetchAndRenderChart(sessionId) {
@@ -33,8 +21,6 @@ async function fetchAndRenderChart(sessionId) {
         const engagement = [];
         const confusion = [];
         const frustration = [];
-        const flow = [];
-        let issuesHtml = '';
 
         if (data.data && data.data.length > 0) {
             const startTs = new Date(data.data[0].timestamp).getTime();
@@ -58,58 +44,15 @@ async function fetchAndRenderChart(sessionId) {
                 confusion.push(c);
                 frustration.push(f);
 
-                // Composite "Study Flow" Score:
-                // High engagement is good (+50% weight). Lack of confusion is good (+25% weight). Lack of frustration is good (+25% weight).
-                // This strictly bounds the score between 0 and 100 with no negative numbers.
-                let flowScore = (e * 0.5) + ((100 - c) * 0.25) + ((100 - f) * 0.25);
-                flow.push(flowScore);
-
-                // Check for friction points (threshold > 30% for demo purposes)
-                if ((c > 30 || f > 30) && (row.audio_text || row.screen_text)) {
-                    const isFrustration = f > c;
-                    const issueClass = isFrustration ? '' : 'confusion';
-                    const label = isFrustration ? `Frustration (${f.toFixed(0)}%)` : `Confusion (${c.toFixed(0)}%)`;
-
-                    let contentHtml = '';
-                    if (row.audio_text) {
-                        // ESCAPE user-generated content to prevent XSS
-                        const escapedAudio = escapeHTML(row.audio_text);
-                        contentHtml += `<div class="issue-text"><strong>Heard:</strong> ${escapedAudio}</div>`;
-                    }
-                    if (row.screen_text) {
-                        // limit OCR text length for readability
-                        const screenText = row.screen_text.length > 150 ? row.screen_text.substring(0, 150) + '...' : row.screen_text;
-                        // ESCAPE user-generated content to prevent XSS
-                        const escapedScreen = escapeHTML(screenText);
-                        contentHtml += `<div class="issue-text"><strong>Screen:</strong> ${escapedScreen}</div>`;
-                    }
-
-                    // Prepend to show newest issues first
-                    issuesHtml = `
-                    <div class="issue-item ${issueClass}">
-                        <span class="issue-time">Time: ${timestampStr} — ${label}</span>
-                        ${contentHtml}
-                    </div>
-                    ` + issuesHtml;
-                }
+                row.timestampStr = timestampStr;
             });
         }
 
-        // Update friction points display
-        const frictionList = document.getElementById('frictionPointsList');
-        if (frictionList) {
-            if (issuesHtml.trim() === '') {
-                frictionList.innerHTML = '<div class="empty-state" style="padding: 1rem;">No friction points detected yet.</div>';
-            } else {
-                frictionList.innerHTML = issuesHtml;
-            }
-        }
-
         // Store chart data in AppState for switching
-        AppState.chartData = { labels, engagement, confusion, frustration, flow };
+        AppState.chartData = { labels, engagement, confusion, frustration, rawData: data.data || [] };
 
-        // Default to Study Flow chart
-        switchChart('flow');
+        // Default to Engagement chart
+        switchChart('engagement');
 
     } catch (e) {
         console.error("Failed to load chart data:", e);
@@ -138,11 +81,7 @@ function switchChart(type) {
     let color = '';
     let label = '';
 
-    if (type === 'flow') {
-        dataset = AppState.chartData.flow;
-        color = '#0b57d0'; // Google Blue
-        label = 'Study Flow Score';
-    } else if (type === 'engagement') {
+    if (type === 'engagement') {
         dataset = AppState.chartData.engagement;
         color = '#146c2e'; // Green
         label = 'Engagement %';
@@ -156,7 +95,62 @@ function switchChart(type) {
         label = 'Frustration %';
     }
 
-    if (AppState.chartInstance) {
+    // Handle Friction Points UI mapping dynamically
+    const frictionList = document.getElementById('frictionPointsList');
+    const container = frictionList ? frictionList.parentElement : null;
+
+    if (container && frictionList) {
+        frictionList.innerHTML = ''; // Clear previous content
+
+        if (type === 'engagement') {
+            container.style.display = 'none';
+        } else {
+            container.style.display = 'block';
+            let issuesHtml = '';
+
+            // Filter and sort the raw data
+            const rawData = AppState.chartData.rawData || [];
+            let sortedData = [...rawData];
+
+            let targetKey = type === 'confusion' ? 'confusion_score' : 'frustration_score';
+
+            // Take top points (e.g. ones > 10%)
+            const relevantData = sortedData.filter(row => (row[targetKey] || 0) > 0.1);
+            relevantData.sort((a, b) => (b[targetKey] || 0) - (a[targetKey] || 0));
+
+            if (relevantData.length === 0) {
+                issuesHtml = '<div class="empty-state" style="padding: 1rem;">No friction points detected yet.</div>';
+            } else {
+                relevantData.forEach(row => {
+                    const score = (row[targetKey] || 0) * 100;
+                    const issueClass = type === 'confusion' ? 'confusion' : '';
+                    const labelText = type === 'confusion' ? `Confusion (${score.toFixed(0)}%)` : `Frustration (${score.toFixed(0)}%)`;
+
+                    let contentHtml = '';
+                    if (row.audio_text) {
+                        const escapedAudio = escapeHTML(row.audio_text);
+                        contentHtml += `<div class="issue-text"><strong>Heard:</strong> ${escapedAudio}</div>`;
+                    }
+                    if (row.screen_text) {
+                        const screenText = row.screen_text.length > 150 ? row.screen_text.substring(0, 150) + '...' : row.screen_text;
+                        const escapedScreen = escapeHTML(screenText);
+                        contentHtml += `<div class="issue-text"><strong>Screen:</strong> ${escapedScreen}</div>`;
+                    }
+                    if (!row.audio_text && !row.screen_text) {
+                        contentHtml += `<div class="issue-text">(No context captured at this peak)</div>`;
+                    }
+
+                    issuesHtml += `
+                    <div class="issue-item ${issueClass}">
+                        <span class="issue-time">Time: ${row.timestampStr} — ${labelText}</span>
+                        ${contentHtml}
+                    </div>
+                    `;
+                });
+            }
+            frictionList.innerHTML = issuesHtml;
+        }
+    }    if (AppState.chartInstance) {
         AppState.chartInstance.destroy();
     }
 
