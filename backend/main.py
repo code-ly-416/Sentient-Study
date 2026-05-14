@@ -34,6 +34,18 @@ def cleanup_legacy_temp_files():
         except Exception as e:
             print(f"[server] Failed to clean up temp dir: {e}")
 
+    # Auto-heal abandoned sessions
+    print("[server] Auto-healing abandoned sessions...")
+    try:
+        conn = get_connection()
+        conn.execute("UPDATE sessions SET end_time = start_time WHERE end_time IS NULL")
+        conn.commit()
+    except Exception as e:
+        print(f"[server] Failed to heal sessions: {e}")
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],

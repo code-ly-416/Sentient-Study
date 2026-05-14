@@ -61,13 +61,14 @@ async function loadAndDisplaySessions() {
             // Build HTML string to avoid duplicate appends
             let html = '';
             let sessionCount = 0;
+            let isProcessing = false;
 
             if (!sessions || sessions.length === 0) {
                 html = `<div class="empty-state">No study sessions yet. Start your first one above!</div>`;
             } else {
                 // Fetch backend status to check if processing
                 const status = await fetchBackendStatus();
-                const isProcessing = status && status.is_processing;
+                isProcessing = status && status.is_processing;
 
                 // If backend is processing but we don't know which session, try to figure it out
                 if (isProcessing && !window.processingSessionId) {
@@ -116,7 +117,7 @@ async function loadAndDisplaySessions() {
                         const escapedTitle = escapeHTML(displayTitle);
                         const escapedDate = escapeHTML(new Date(s.start_time).toLocaleDateString());
                         const escapedTime = escapeHTML(new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-                        
+
                         html += `
                             <div class="session-card" style="opacity: 0.6; cursor: not-allowed;" data-session-id="${s.id}">
                                 <div class="card-header">
@@ -138,7 +139,7 @@ async function loadAndDisplaySessions() {
                         const escapedTitle = escapeHTML(displayTitle);
                         const escapedDate = escapeHTML(new Date(s.start_time).toLocaleDateString());
                         const escapedTime = escapeHTML(new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-                        
+
                         // Use a safe onclick handler that doesn't embed data in the HTML string
                         html += `
                             <div class="session-card" data-session-id="${s.id}" data-session-title="${encodeURIComponent(displayTitle)}" data-session-start="${encodeURIComponent(s.start_time)}">
@@ -164,14 +165,14 @@ async function loadAndDisplaySessions() {
             // Set innerHTML ONCE (prevents duplicate appends)
             console.log(`[loadSessions] Call #${currentCall}: Setting innerHTML with ${sessionCount} sessions`);
             sessionList.innerHTML = html;
-            
+
             // Now attach click handlers safely using addEventListener
             if (!isProcessing) {
                 sessionList.querySelectorAll('.session-card[data-session-id]').forEach(card => {
                     const sessionId = card.dataset.sessionId;
                     const title = decodeURIComponent(card.dataset.sessionTitle || '');
                     const startTime = decodeURIComponent(card.dataset.sessionStart || '');
-                    
+
                     card.style.cursor = 'pointer';
                     card.onclick = () => goToDetails(sessionId, title, startTime);
                 });
