@@ -6,6 +6,37 @@
 // Chart instance - stored in AppState
 // Initialize when api.js has loaded
 
+function extractKeyTopic(rows) {
+    const stopWords = new Set([
+        'the', 'and', 'with', 'from', 'that', 'this', 'have', 'your', 'for',
+        'not', 'are', 'was', 'but', 'you', 'has', 'had', 'use', 'using', 'about',
+        'into', 'they', 'them', 'their', 'there', 'here', 'when', 'where', 'what',
+        'will', 'would', 'could', 'should', 'been', 'than', 'then', 'over', 'more'
+    ]);
+
+    const counts = {};
+    rows.forEach(row => {
+        if (!row.screen_text) return;
+        const words = row.screen_text.toLowerCase().match(/[a-z0-9]{4,}/g);
+        if (!words) return;
+        words.forEach(word => {
+            if (stopWords.has(word)) return;
+            counts[word] = (counts[word] || 0) + 1;
+        });
+    });
+
+    let topWord = '';
+    let topCount = 0;
+    Object.entries(counts).forEach(([word, count]) => {
+        if (count > topCount) {
+            topWord = word;
+            topCount = count;
+        }
+    });
+
+    return topWord || 'N/A';
+}
+
 /**
  * Fetch and render the analytics chart for a session
  */
@@ -51,6 +82,54 @@ async function fetchAndRenderChart(sessionId) {
         // Store chart data in AppState for switching
         AppState.chartData = { labels, engagement, confusion, frustration, rawData: data.data || [] };
 
+        // KPI calculations
+        const avgEngagementValue = document.getElementById('avgEngagementValue');
+        const avgEngagementTrend = document.getElementById('avgEngagementTrend');
+        if (avgEngagementValue) {
+            if (engagement.length > 0) {
+                const avg = engagement.reduce((sum, value) => sum + value, 0) / engagement.length;
+                avgEngagementValue.textContent = `${avg.toFixed(0)}%`;
+                if (avgEngagementTrend) {
+                    const delta = engagement[engagement.length - 1] - engagement[0];
+                    const trendLabel = delta > 3 ? 'Trend: Up' : delta < -3 ? 'Trend: Down' : 'Trend: Stable';
+                    avgEngagementTrend.textContent = trendLabel;
+                }
+            } else {
+                avgEngagementValue.textContent = '--%';
+                if (avgEngagementTrend) {
+                    avgEngagementTrend.textContent = 'Trend: --';
+                }
+            }
+        }
+
+        const peakFrustrationValue = document.getElementById('peakFrustrationValue');
+        const peakFrustrationTime = document.getElementById('peakFrustrationTime');
+        if (peakFrustrationValue) {
+            const rawRows = data.data || [];
+            if (rawRows.length > 0) {
+                const peakRow = rawRows.reduce((maxRow, row) => {
+                    const rowValue = row.frustration_score || 0;
+                    const maxValue = maxRow.frustration_score || 0;
+                    return rowValue > maxValue ? row : maxRow;
+                }, rawRows[0]);
+                const peakValue = (peakRow.frustration_score || 0) * 100;
+                peakFrustrationValue.textContent = `${peakValue.toFixed(0)}%`;
+                if (peakFrustrationTime) {
+                    peakFrustrationTime.textContent = `Time: ${peakRow.timestampStr || '--'}`;
+                }
+            } else {
+                peakFrustrationValue.textContent = '--%';
+                if (peakFrustrationTime) {
+                    peakFrustrationTime.textContent = 'Time: --';
+                }
+            }
+        }
+
+        const keyTopicValue = document.getElementById('keyTopicValue');
+        if (keyTopicValue) {
+            keyTopicValue.textContent = extractKeyTopic(data.data || []);
+        }
+
         // Default to Engagement chart
         switchChart('engagement');
 
@@ -64,10 +143,14 @@ async function fetchAndRenderChart(sessionId) {
  */
 function switchChart(type) {
     // Update UI tabs
+    const tabContainer = document.querySelector('.chart-tabs');
     document.querySelectorAll('.chart-tab').forEach(btn => btn.classList.remove('active'));
     const activeTab = document.querySelector(`.chart-tab[onclick*="${type}"]`);
     if (activeTab) {
         activeTab.classList.add('active');
+    }
+    if (tabContainer) {
+        tabContainer.setAttribute('data-active', type);
     }
 
     const ctx = document.getElementById('analyticsChart');
@@ -83,15 +166,15 @@ function switchChart(type) {
 
     if (type === 'engagement') {
         dataset = AppState.chartData.engagement;
-        color = '#146c2e'; // Green
+        color = '#3b82f6';
         label = 'Engagement %';
     } else if (type === 'confusion') {
         dataset = AppState.chartData.confusion;
-        color = '#b3261e'; // Red
+        color = '#f59e0b';
         label = 'Confusion %';
     } else if (type === 'frustration') {
         dataset = AppState.chartData.frustration;
-        color = '#b36b00'; // Orange
+        color = '#ef4444';
         label = 'Frustration %';
     }
 
@@ -150,7 +233,9 @@ function switchChart(type) {
             }
             frictionList.innerHTML = issuesHtml;
         }
-    }    if (AppState.chartInstance) {
+    }
+
+    if (AppState.chartInstance) {
         AppState.chartInstance.destroy();
     }
 

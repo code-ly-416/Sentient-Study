@@ -30,22 +30,38 @@
     <div class="container">
         <!-- DASHBOARD VIEW -->
         <div id="dashboardView" class="view active">
-            <!-- Control Panel -->
-            <div class="control-panel">
-                <button id="newSessionBtn" class="btn-primary" onclick="showNewSessionModal()">
-                    <span class="material-symbols-rounded">add</span>
-                    New Session
-                </button>
-                <button id="stopBtn" class="btn-danger" style="display: none;" onclick="stopSession()">
-                    <span class="material-symbols-rounded">stop</span>
-                    Stop Recording
-                </button>
-            </div>
+            <section class="dashboard-hero">
+                <div class="session-timer">
+                    <div class="timer-label">Session Duration</div>
+                    <div id="sessionTimer" class="timer-display">00:00:00</div>
+                </div>
+                <div class="record-controls">
+                    <button id="newSessionBtn" class="record-button" onclick="showNewSessionModal()">
+                        <span class="material-symbols-rounded">fiber_manual_record</span>
+                        Start Recording
+                    </button>
+                    <button id="stopBtn" class="record-button stop" style="display: none;" onclick="stopSession()">
+                        <span class="material-symbols-rounded">stop</span>
+                        Stop Recording
+                    </button>
+                </div>
+            </section>
 
-            <h2>Recent Sessions</h2>
-            <div class="grid" id="sessionList">
-                <div class="empty-state">Loading your sessions...</div>
-            </div>
+            <section class="dashboard-section">
+                <div class="section-header">
+                    <h2>Recent Sessions</h2>
+                </div>
+                <div class="grid" id="sessionList">
+                    <div class="empty-state">Loading your sessions...</div>
+                </div>
+            </section>
+
+            <section class="dashboard-section live-feed">
+                <div class="section-header">
+                    <h2>Live Activity Feed</h2>
+                </div>
+                <div class="live-feed-body">Coming Soon: Real-time AI observations will appear here.</div>
+            </section>
         </div>
     </div>
 
