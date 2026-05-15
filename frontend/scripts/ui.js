@@ -6,6 +6,8 @@
 // Store the session ID that is currently being processed
 window.processingSessionId = null;
 let statusPollInterval = null;
+let recordingInterval = null;
+let recordingStartTime = null;
 
 // Use a promise-based lock for loading sessions
 let loadSessionsPromise = null;
@@ -228,26 +230,77 @@ async function initializeDetailsPage() {
     const title = urlParams.get('title');
     const startTime = urlParams.get('startTime');
 
-    if (!sessionId) {
+    // Set session details
+    const detailTitle = document.getElementById('detailTitle');
+    const detailDate = document.getElementById('detailDate');
+    const sessionSelector = document.getElementById('sessionSelector');
+
+    let selectedSessionId = sessionId;
+    let sessions = [];
+
+    try {
+        sessions = await fetchSessions();
+    } catch (e) {
+        console.error('[initializeDetailsPage] Failed to fetch sessions:', e);
+    }
+
+    const endedSessions = sessions.filter(s => s.end_time);
+    if (!selectedSessionId && endedSessions.length > 0) {
+        selectedSessionId = String(endedSessions[0].id);
+    }
+
+    if (!selectedSessionId) {
         console.error('No session ID provided');
         return;
     }
 
-    // Set session details
-    const detailTitle = document.getElementById('detailTitle');
-    const detailDate = document.getElementById('detailDate');
+    const applySessionDetails = (session) => {
+        if (!session) return;
+        if (detailTitle) {
+            detailTitle.textContent = session.title ? session.title : `Session #${session.id}`;
+        }
+        if (detailDate && session.start_time) {
+            detailDate.textContent = new Date(session.start_time).toLocaleString();
+        }
+    };
 
-    if (detailTitle) {
-        // Use textContent for safe rendering
-        detailTitle.textContent = decodeURIComponent(title) || `Session #${sessionId}`;
+    const selectedSession = endedSessions.find(s => String(s.id) === String(selectedSessionId));
+    if (selectedSession) {
+        applySessionDetails(selectedSession);
+    } else {
+        if (detailTitle) {
+            detailTitle.textContent = decodeURIComponent(title || '') || `Session #${selectedSessionId}`;
+        }
+        if (detailDate && startTime) {
+            detailDate.textContent = new Date(decodeURIComponent(startTime)).toLocaleString();
+        }
     }
-    if (detailDate && startTime) {
-        detailDate.textContent = new Date(decodeURIComponent(startTime)).toLocaleString();
+
+    if (sessionSelector) {
+        const optionsHtml = endedSessions.map(s => {
+            const label = escapeHTML(s.title ? s.title : `Session #${s.id}`);
+            return `<option value="${s.id}">${label}</option>`;
+        }).join('');
+        sessionSelector.innerHTML = optionsHtml;
+        sessionSelector.value = String(selectedSessionId);
+
+        sessionSelector.onchange = async () => {
+            const newSessionId = sessionSelector.value;
+            const nextSession = endedSessions.find(s => String(s.id) === String(newSessionId));
+            if (nextSession) {
+                applySessionDetails(nextSession);
+                const newUrl = `/details.html?sessionId=${newSessionId}&title=${encodeURIComponent(nextSession.title || `Session #${nextSessionId}`)}&startTime=${encodeURIComponent(nextSession.start_time || '')}`;
+                window.history.replaceState({}, '', newUrl);
+            }
+            if (typeof fetchAndRenderChart === 'function') {
+                await fetchAndRenderChart(newSessionId);
+            }
+        };
     }
 
     // Load chart data
     if (typeof fetchAndRenderChart === 'function') {
-        await fetchAndRenderChart(sessionId);
+        await fetchAndRenderChart(selectedSessionId);
     }
 }
 
@@ -383,6 +436,24 @@ async function confirmNewSession() {
             updateStatusBadge(true);
             AppState.isRecording = true;
 
+            recordingStartTime = Date.now();
+            if (recordingInterval) {
+                clearInterval(recordingInterval);
+            }
+            recordingInterval = setInterval(() => {
+                const now = Date.now();
+                const elapsedMs = now - recordingStartTime;
+                const totalSeconds = Math.floor(elapsedMs / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+                const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                const timerEl = document.getElementById('sessionTimer');
+                if (timerEl) {
+                    timerEl.textContent = formatted;
+                }
+            }, 1000);
+
             // Don't reload sessions list while recording
             // Sessions should only appear after stopping
         } else {
@@ -427,6 +498,16 @@ async function stopSession() {
             }
             updateStatusBadge(false);
             AppState.isRecording = false;
+
+            if (recordingInterval) {
+                clearInterval(recordingInterval);
+                recordingInterval = null;
+            }
+            recordingStartTime = null;
+            const timerEl = document.getElementById('sessionTimer');
+            if (timerEl) {
+                timerEl.textContent = '00:00:00';
+            }
 
             // Reload sessions list to show the stopped session with "Processing..." state
             await loadAndDisplaySessions();

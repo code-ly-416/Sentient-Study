@@ -38,6 +38,31 @@ header {
     top: 0;
     z-index: 100;
 }
+.top-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.nav-button {
+    text-decoration: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: var(--surface-alt);
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.nav-button:hover {
+    background: #1b2430;
+    color: var(--text-main);
+}
+.nav-button.active {
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--primary);
+    border-color: var(--primary);
+}
 .logo {
     font-size: 1.25rem;
     font-weight: 500;
@@ -249,6 +274,31 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 2rem;
+}
+.session-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 220px;
+}
+.session-selector label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.session-selector select {
+    background: var(--surface-alt);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+}
+.session-selector select:focus {
+    border-color: var(--primary);
 }
 .details-header h2 {
     font-size: 2rem;

@@ -82,6 +82,9 @@ class CaptureEngine:
         print(f"[capture] Stopping session {self._session_id}")
         self._recording = False
 
+        if self._threads:
+            self._threads[0].join()
+
         # Gracefully shutdown the executor, waiting for all tasks to complete
         print(f"[capture] Waiting for all processing tasks to complete...")
         self.executor.shutdown(wait=True)
@@ -155,6 +158,9 @@ class CaptureEngine:
 
                 # --- 4. Process the Chunk ---
                 audio_data = audio_buffer_container[0].flatten() if audio_buffer_container else np.zeros(int(10 * audio_sr), dtype='float32')
+
+                if not self._recording:
+                    break
 
                 # Use ThreadPoolExecutor instead of raw threading.Thread
                 self.executor.submit(self._process_chunk, self._session_id, chunk_start, frames, audio_data, img)
