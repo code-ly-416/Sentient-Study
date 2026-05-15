@@ -449,8 +449,13 @@ async function confirmNewSession() {
                 const seconds = totalSeconds % 60;
                 const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
                 const timerEl = document.getElementById('sessionTimer');
+                const dotEl = document.getElementById('recordingDot');
                 if (timerEl) {
                     timerEl.textContent = formatted;
+                    timerEl.classList.toggle('timer-active', AppState.isRecording);
+                }
+                if (dotEl) {
+                    dotEl.style.display = AppState.isRecording ? 'inline-block' : 'none';
                 }
             }, 1000);
 
@@ -482,6 +487,11 @@ async function stopSession() {
     const timerEl = document.getElementById('sessionTimer');
     if (timerEl) {
         timerEl.textContent = '00:00:00';
+        timerEl.classList.remove('timer-active');
+    }
+    const dotEl = document.getElementById('recordingDot');
+    if (dotEl) {
+        dotEl.style.display = 'none';
     }
 
     const stopBtn = document.getElementById('stopBtn');

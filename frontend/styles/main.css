@@ -111,6 +111,56 @@ header {
     font-weight: 600;
     color: var(--text-main);
     margin-top: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.timer-active {
+    animation: timerPulse 2.4s ease-in-out infinite;
+}
+#recordingDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #ff4444;
+    position: relative;
+    display: none;
+}
+#recordingDot::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(255, 68, 68, 0.7);
+    animation: ripple 1.6s ease-out infinite;
+}
+@keyframes timerPulse {
+    0% {
+        transform: scale(1);
+        text-shadow: 0 0 6px rgba(255, 255, 255, 0.1);
+    }
+    50% {
+        transform: scale(1.02);
+        text-shadow: 0 0 12px rgba(255, 255, 255, 0.35);
+    }
+    100% {
+        transform: scale(1);
+        text-shadow: 0 0 6px rgba(255, 255, 255, 0.1);
+    }
+}
+@keyframes ripple {
+    0% {
+        opacity: 0.8;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(2.6);
+    }
 }
 .record-controls {
     display: flex;
@@ -328,12 +378,19 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
 }
 .kpi-card {
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
     border-radius: 16px;
     padding: 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+}
+.card {
+    background: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
 }
 .kpi-title {
     color: var(--text-muted);
