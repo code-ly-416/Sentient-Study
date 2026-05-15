@@ -37,6 +37,20 @@ function extractKeyTopic(rows) {
     return topWord || 'N/A';
 }
 
+function buildTooltipContext(dataIndex) {
+    const rawData = AppState.chartData.rawData || [];
+    const row = rawData[dataIndex] || {};
+    const screenText = row.screen_text ? String(row.screen_text) : '';
+    const audioText = row.audio_text ? String(row.audio_text) : '';
+    const trimmedScreen = screenText.length > 100 ? `${screenText.substring(0, 100)}...` : screenText;
+    const cleanedScreen = trimmedScreen.replace(/\s+/g, ' ').trim();
+    const cleanedAudio = audioText.replace(/\s+/g, ' ').trim();
+
+    const contextText = cleanedScreen ? cleanedScreen : 'N/A';
+    const audioDisplay = cleanedAudio ? cleanedAudio : 'N/A';
+    return `Context: ${contextText} | Audio: ${audioDisplay}`;
+}
+
 /**
  * Fetch and render the analytics chart for a session
  */
@@ -278,13 +292,17 @@ function switchChart(type) {
                 tooltip: {
                     mode: 'index',
                     intersect: false,
-                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    backgroundColor: 'rgba(17, 22, 29, 0.9)',
                     padding: 12,
+                    cornerRadius: 8,
                     titleFont: { size: 14, family: 'Inter' },
                     bodyFont: { size: 14, family: 'Inter' },
                     callbacks: {
                         label: function (context) {
                             return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                        },
+                        afterLabel: function (context) {
+                            return buildTooltipContext(context.dataIndex);
                         }
                     }
                 }
