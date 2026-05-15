@@ -37,18 +37,38 @@ function extractKeyTopic(rows) {
     return topWord || 'N/A';
 }
 
-function buildTooltipContext(dataIndex) {
+function extractChunkTopic(text) {
+    const stopWords = new Set([
+        'the', 'and', 'with', 'from', 'that', 'this', 'have', 'your', 'for',
+        'not', 'are', 'was', 'but', 'you', 'has', 'had', 'use', 'using', 'about',
+        'into', 'they', 'them', 'their', 'there', 'here', 'when', 'where', 'what',
+        'will', 'would', 'could', 'should', 'been', 'than', 'then', 'over', 'more',
+        'chrome', 'file', 'edit', 'view', 'history', 'bookmarks', 'tabs', 'tab',
+        'window', 'help', 'search', 'address', 'settings', 'extensions', 'reload',
+        'new', 'private', 'incognito', 'back', 'forward', 'home'
+    ]);
+
+    const tokens = text.match(/[A-Za-z][A-Za-z0-9_\-]{3,}/g) || [];
+    const counts = {};
+    tokens.forEach(token => {
+        const cleaned = token.toLowerCase();
+        if (cleaned.length <= 4 || stopWords.has(cleaned)) return;
+        counts[cleaned] = (counts[cleaned] || 0) + (token[0] === token[0].toUpperCase() ? 2 : 1);
+    });
+
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    if (sorted.length === 0) return 'N/A';
+    return sorted.map(([term]) => term.charAt(0).toUpperCase() + term.slice(1)).join(' ');
+}
+
+function buildTooltipTopic(dataIndex) {
     const rawData = AppState.chartData.rawData || [];
     const row = rawData[dataIndex] || {};
     const screenText = row.screen_text ? String(row.screen_text) : '';
     const audioText = row.audio_text ? String(row.audio_text) : '';
-    const trimmedScreen = screenText.length > 100 ? `${screenText.substring(0, 100)}...` : screenText;
-    const cleanedScreen = trimmedScreen.replace(/\s+/g, ' ').trim();
-    const cleanedAudio = audioText.replace(/\s+/g, ' ').trim();
-
-    const contextText = cleanedScreen ? cleanedScreen : 'N/A';
-    const audioDisplay = cleanedAudio ? cleanedAudio : 'N/A';
-    return `Context: ${contextText} | Audio: ${audioDisplay}`;
+    const combined = `${screenText} ${audioText}`.trim();
+    const topic = combined ? extractChunkTopic(combined) : 'N/A';
+    return `Topic: ${topic}`;
 }
 
 /**
@@ -302,7 +322,7 @@ function switchChart(type) {
                             return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
                         },
                         afterLabel: function (context) {
-                            return buildTooltipContext(context.dataIndex);
+                            return buildTooltipTopic(context.dataIndex);
                         }
                     }
                 }

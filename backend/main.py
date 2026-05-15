@@ -12,8 +12,9 @@ from pydantic import BaseModel
 import uvicorn
 import os
 
-from database import create_session, end_session, get_connection
+from database import create_session, end_session, get_connection, update_session_title
 from capture_engine import engine
+from nlp_utils import extract_smart_title
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
@@ -97,7 +98,30 @@ def stop_recording(background_tasks: BackgroundTasks):
         state.is_processing = False
         print("[server] Post-processing complete.")
 
-    background_tasks.add_task(engine.stop, on_done_callback=on_done)
+    def stop_and_title():
+        engine.stop(on_done_callback=on_done)
+        conn = None
+        try:
+            conn = get_connection()
+            rows = conn.execute(
+                "SELECT screen_text, audio_text FROM session_data WHERE session_id=?",
+                (sid,),
+            ).fetchall()
+            text_list = []
+            for row in rows:
+                if row["screen_text"]:
+                    text_list.append(row["screen_text"])
+                if row["audio_text"]:
+                    text_list.append(row["audio_text"])
+            smart_title = extract_smart_title(text_list)
+            update_session_title(sid, smart_title)
+        except Exception as e:
+            print(f"[server] Failed to update session title: {e}")
+        finally:
+            if conn:
+                conn.close()
+
+    background_tasks.add_task(stop_and_title)
     return {"status": "ok", "session_id": sid}
 
 @app.get("/api/status")

@@ -95,5 +95,21 @@ def end_session(session_id: int):
             conn.close()
 
 
+def update_session_title(session_id: int, title: str):
+    """Update the title for a session."""
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE sessions SET title = ? WHERE id = ?",
+            (title, session_id),
+        )
+        conn.commit()
+    finally:
+        if conn:
+            conn.close()
+
+
 # Auto-initialise on import
 init_db()
