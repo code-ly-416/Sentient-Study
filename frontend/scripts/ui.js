@@ -474,6 +474,16 @@ async function confirmNewSession() {
  * Stop the current recording session
  */
 async function stopSession() {
+    if (recordingInterval) {
+        clearInterval(recordingInterval);
+        recordingInterval = null;
+    }
+    recordingStartTime = null;
+    const timerEl = document.getElementById('sessionTimer');
+    if (timerEl) {
+        timerEl.textContent = '00:00:00';
+    }
+
     const stopBtn = document.getElementById('stopBtn');
     const newSessionBtn = document.getElementById('newSessionBtn');
 
@@ -498,16 +508,6 @@ async function stopSession() {
             }
             updateStatusBadge(false);
             AppState.isRecording = false;
-
-            if (recordingInterval) {
-                clearInterval(recordingInterval);
-                recordingInterval = null;
-            }
-            recordingStartTime = null;
-            const timerEl = document.getElementById('sessionTimer');
-            if (timerEl) {
-                timerEl.textContent = '00:00:00';
-            }
 
             // Reload sessions list to show the stopped session with "Processing..." state
             await loadAndDisplaySessions();

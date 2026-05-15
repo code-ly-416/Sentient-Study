@@ -4,7 +4,7 @@ Run: cd backend && python main.py
 Open: http://localhost:8000
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -84,7 +84,7 @@ def start_recording(req: StartRequest):
     return {"status": "ok", "session_id": session_id}
 
 @app.post("/api/stop")
-def stop_recording():
+def stop_recording(background_tasks: BackgroundTasks):
     if not state.is_recording:
         raise HTTPException(400, "Not recording.")
     end_session(state.active_session_id)
@@ -97,7 +97,7 @@ def stop_recording():
         state.is_processing = False
         print("[server] Post-processing complete.")
 
-    engine.stop(on_done_callback=on_done)
+    background_tasks.add_task(engine.stop, on_done_callback=on_done)
     return {"status": "ok", "session_id": sid}
 
 @app.get("/api/status")

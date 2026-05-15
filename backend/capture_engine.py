@@ -30,6 +30,8 @@ class CaptureEngine:
         self._session_id = None
         self._start_ts = None
         self._threads = []
+        self.camera_index = 0
+        self.cap = None
 
         # Create ThreadPoolExecutor for managed thread execution
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
@@ -71,6 +73,11 @@ class CaptureEngine:
         self._session_id = session_id
         self._start_ts = datetime.now()
 
+        self.cap = cv2.VideoCapture(self.camera_index)
+        if not self.cap.isOpened():
+            self.cap = None
+            raise RuntimeError("[capture] ERROR: no webcam")
+
         print(f"[capture] Recording started (session {session_id})")
 
         # Start the main chunk processor thread
@@ -81,6 +88,10 @@ class CaptureEngine:
     def stop(self, on_done_callback=None):
         print(f"[capture] Stopping session {self._session_id}")
         self._recording = False
+
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
 
         if self._threads:
             self._threads[0].join()
@@ -97,11 +108,6 @@ class CaptureEngine:
             on_done_callback()
 
     def _run_chunk_loop(self):
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            print("[capture] ERROR: no webcam")
-            return
-
         sct = mss.mss()
         audio_sr = 16000
 
@@ -125,7 +131,9 @@ class CaptureEngine:
                 # --- 2. Video Capture (Continuous for 10 seconds) ---
                 captured_frames = []
                 while time.time() - chunk_start < 10.0 and self._recording:
-                    ret, frame = cap.read()
+                    if self.cap is None or not self.cap.isOpened():
+                        break
+                    ret, frame = self.cap.read()
                     if ret:
                         captured_frames.append(frame)
                     else:
@@ -165,7 +173,9 @@ class CaptureEngine:
                 # Use ThreadPoolExecutor instead of raw threading.Thread
                 self.executor.submit(self._process_chunk, self._session_id, chunk_start, frames, audio_data, img)
 
-        cap.release()
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
 
     def _process_chunk(self, session_id, chunk_start_time, frames, audio_data, screen_img):
         offset_seconds = int(chunk_start_time - self._start_ts.timestamp())
