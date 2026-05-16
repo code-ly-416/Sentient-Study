@@ -1,22 +1,20 @@
-# Core server
+# Server Core
 fastapi
 uvicorn
+pydantic
 
-
-# Video & screen capture
+# Data Scraping/OCR
 opencv-python
 mss
 pillow
-
-# OCR
 easyocr
 
-# ML inference
+# Deep Learning Inference
 numpy
 torch
 torchvision
 torchaudio
 
-# Audio recording & transcription
+# Audio Pipeline
 soundcard
 openai-whisper

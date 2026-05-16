@@ -2,13 +2,12 @@
 
 A **desktop application** that monitors engagement, confusion, and frustration during study sessions using webcam facial tracking (ResNet-18 → LSTM), screen OCR, and audio transcription (Whisper).
 
-## Features
+## Core Highlights
 
-- Real-time webcam recording with ML-based affective state scoring
-- 10-second aggregated data blocks with Engagement / Confusion / Frustration scores
-- Automatic OCR screen-context extraction via Tesseract
-- Audio transcription via OpenAI Whisper
-- Simple web dashboard to view session data
+- **NLP Auto-Titling:** Automatically identify the specific study topic to replace raw text dumps in graph tooltips.
+- **Dark Glassmorphic Theme:** A modernized, sleek dashboard UI with uniform navigation.
+- **Interactive Friction Context Modals:** Clickable friction points dynamically pop up detailed OCR and Audio transcription context for precision analysis.
+- **Inline Session Lifetime Management:** Seamlessly delete tracking sessions immediately within the application interface via SPA design.
 
 ## Setup
 
@@ -22,17 +21,15 @@ A **desktop application** that monitors engagement, confusion, and frustration d
    pip install -r requirements.txt
    ```
 
-3. **Install Tesseract-OCR** (required for screen context):
-   - Download from [Tesseract for Windows](https://github.com/UB-Mannheim/tesseract/wiki)
-   - Ensure `tesseract.exe` is on your system PATH
+   *Note: System screen reading is managed via Python-native `easyocr`. No external executable installations are required.*
 
-4. **Run the application**:
+3. **Run the application**:
    ```powershell
    cd backend
    python main.py
    ```
 
-5. **Open in browser**:
+4. **Open in browser**:
    Navigate to `http://localhost:8000`
 
 ## Project Structure
@@ -43,10 +40,18 @@ sentient-project/
 │   ├── main.py              # FastAPI server + static file serving
 │   ├── capture_engine.py    # Video / audio / screen recording threads
 │   ├── database.py          # SQLite schema & helpers
+│   ├── nlp_utils.py         # NLP Auto-titling & context processing
 │   └── ml_models.py         # ResNet-18 extractor + LSTM classifiers
 ├── frontend/
-│   └── index.html           # Minimal test UI
+│   ├── dashboard.html       # Primary session metrics view
+│   ├── details.html         # Individual session overview & friction graphs
+│   ├── scripts/
+│   │   ├── api.js           # API connectivity & JSON handling
+│   │   ├── charts.js        # Chart.js visualization + tooltips
+│   │   └── ui.js            # Modals, buttons, and interaction flow
+│   └── styles/
+│       └── main.css         # Dark glassmorphic styling
 ├── models/                  # Pre-trained LSTM weights (.pth)
 ├── data/                    # SQLite DB + temp recordings
-└── requirements.txt         # Python dependencies
+└── requirements.txt         # Segmented Python dependencies
 ```
