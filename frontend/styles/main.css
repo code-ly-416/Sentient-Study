@@ -548,9 +548,7 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
     height: 100%;
 }
 .friction-sidebar.is-hidden {
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
+    display: none;
 }
 .sidebar-header {
     display: flex;

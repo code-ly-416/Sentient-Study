@@ -642,6 +642,12 @@ function bindContextModalActions() {
 // Page-specific initialization
 document.addEventListener('DOMContentLoaded', function() {
     console.log('[init] DOMContentLoaded fired');
+
+    if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+
     initializeDOM();
 
     const pathname = window.location.pathname;
