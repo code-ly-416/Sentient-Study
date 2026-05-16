@@ -309,7 +309,7 @@ function switchChart(type) {
                 borderWidth: 3,
                 fill: true,
                 tension: 0.4, // Smooth curved lines
-                pointRadius: 4,
+                pointRadius: 2,
                 pointHoverRadius: 6,
                 pointBackgroundColor: '#fff',
                 pointBorderColor: color,
