@@ -74,6 +74,7 @@ class CaptureEngine:
         self._recording = True
         self._session_id = session_id
         self._start_ts = datetime.now()
+        self.chunk_index = 0
 
         self.cap = cv2.VideoCapture(self.camera_index)
         if not self.cap.isOpened():
@@ -110,7 +111,6 @@ class CaptureEngine:
             on_done_callback()
 
     def _run_chunk_loop(self):
-        sct = mss.mss()
         audio_sr = 16000
 
         default_spk = sc.default_speaker()
@@ -118,21 +118,25 @@ class CaptureEngine:
         print(f"[capture] Using loopback device for system audio: {lb.name}")
 
         with lb.recorder(samplerate=audio_sr, channels=1) as mic:
+            next_chunk_target = time.time()
             while self._recording:
                 chunk_start = time.time()
 
-                # --- 1. Audio Capture (10 seconds in a background thread) ---
+                # Calculate precise remaining duration for this 10s window
+                current_time = time.time()
+                chunk_duration = next_chunk_target + 10.0 - current_time
+
+                # --- 1. Audio Capture (dynamically adjusted to fill the window) ---
                 audio_buffer_container = []
                 def record_audio():
-                    # This blocks for exactly the number of frames requested
-                    audio_buffer_container.append(mic.record(numframes=int(10 * audio_sr)))
+                    audio_buffer_container.append(mic.record(numframes=int(chunk_duration * audio_sr)))
 
                 audio_thread = threading.Thread(target=record_audio)
                 audio_thread.start()
 
-                # --- 2. Video Capture (Continuous for 10 seconds) ---
+                # --- 2. Video Capture (runs until the absolute target boundary) ---
                 captured_frames = []
-                while time.time() - chunk_start < 10.0 and self._recording:
+                while time.time() < (next_chunk_target + 10.0) and self._recording:
                     if self.cap is None or not self.cap.isOpened():
                         break
                     ret, frame = self.cap.read()
@@ -141,47 +145,52 @@ class CaptureEngine:
                     else:
                         time.sleep(0.01)
 
-                audio_thread.join() # Wait for the audio to finish its 10 seconds
+                audio_thread.join() # Wait for the audio to finish
 
-                # Sample exactly 10 frames from the continuous 10s video chunk
-                frames = []
-                if len(captured_frames) > 0:
-                    indices = np.linspace(0, len(captured_frames) - 1, 10, dtype=int)
-                    for idx in indices:
-                        f = captured_frames[idx]
-                        frames.append(self.transform(cv2.cvtColor(f, cv2.COLOR_BGR2RGB)))
-                else:
-                    for _ in range(10):
-                        frames.append(torch.zeros(3, 224, 224))
-
-                # --- 3. Screen Capture (1 screenshot) ---
-                try:
-                    raw = sct.grab(sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0])
-                    img = Image.frombytes("RGB", raw.size, raw.bgra, "raw", "BGRX")
-
-                    # Apply ROI Cropping (remove top 50 and bottom 50 pixels)
-                    width, height = img.size
-                    if height > 100:
-                        img = img.crop((0, 50, width, height - 50))
-                except Exception:
-                    img = None
-
-                # --- 4. Process the Chunk ---
+                # --- 3. Process the Chunk ---
                 audio_data = audio_buffer_container[0].flatten() if audio_buffer_container else np.zeros(int(10 * audio_sr), dtype='float32')
 
                 if not self._recording:
                     break
 
-                # Use ThreadPoolExecutor instead of raw threading.Thread
-                self.executor.submit(self._process_chunk, self._session_id, chunk_start, frames, audio_data, img)
+                # Submit raw captured_frames directly — all heavy transforms run in the background worker
+                self.executor.submit(self._process_chunk, self._session_id, self.chunk_index, chunk_start, captured_frames, audio_data)
+
+                self.chunk_index += 1
+
+                # Advance anchor by strict 10.0s — no sleep needed, capture phase self-regulates
+                next_chunk_target += 10.0
 
         if self.cap is not None:
             self.cap.release()
             self.cap = None
 
-    def _process_chunk(self, session_id, chunk_start_time, frames, audio_data, screen_img):
-        offset_seconds = int(chunk_start_time - self._start_ts.timestamp())
-        ts = (self._start_ts + timedelta(seconds=offset_seconds)).isoformat()
+    def _process_chunk(self, session_id, chunk_index, chunk_start_time, captured_frames, audio_data):
+        ts = (self._start_ts + timedelta(seconds=chunk_index * 10)).isoformat()
+
+        # --- Screen Capture (thread-local mss context) ---
+        screen_img = None
+        try:
+            import mss as _mss
+            with _mss.mss() as sct:
+                raw_screen = sct.grab(sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0])
+            screen_img = Image.frombytes("RGB", raw_screen.size, raw_screen.bgra, "raw", "BGRX")
+            width, height = screen_img.size
+            if height > 100:
+                screen_img = screen_img.crop((0, 50, width, height - 50))
+        except Exception as e:
+            print(f"[capture] Screen processing error: {e}")
+
+        # --- Frame Sub-sampling and Transform (moved from capture loop) ---
+        frames = []
+        if len(captured_frames) > 0:
+            indices = np.linspace(0, len(captured_frames) - 1, 10, dtype=int)
+            for idx in indices:
+                f = captured_frames[idx]
+                frames.append(self.transform(cv2.cvtColor(f, cv2.COLOR_BGR2RGB)))
+        else:
+            for _ in range(10):
+                frames.append(torch.zeros(3, 224, 224))
 
         # 1. Video Inference
         es, cs_, fs = 0.0, 0.0, 0.0
@@ -230,7 +239,7 @@ class CaptureEngine:
                 (session_id, ts, es, cs_, fs, ocr_text, aud_text, topic, description),
             )
             conn.commit()
-            print(f"[chunk] Processed 10s chunk at offset {offset_seconds}s (OCR: {len(ocr_text)} chars, Audio: {len(aud_text)} chars)")
+            print(f"[chunk] Processed 10s chunk at offset {chunk_index * 10}s (OCR: {len(ocr_text)} chars, Audio: {len(aud_text)} chars)")
         except Exception as e:
             print(f"[db] error: {e}")
         finally:
