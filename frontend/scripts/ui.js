@@ -154,7 +154,7 @@ async function loadAndDisplaySessions() {
                                 </div>
                                 <div class="card-footer">
                                     <span class="chip">${duration}</span>
-                                    <span class="chip">ID: ${s.id}</span>
+                                    <span class="chip">${escapedTitle}</span>
                                     <button class="delete-btn" onclick="event.stopPropagation(); showDeleteModal(${s.id}, event)">
                                         <span class="material-symbols-rounded">delete</span>
                                     </button>
