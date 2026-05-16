@@ -213,16 +213,6 @@ function goToDetails(sessionId, title, startTime) {
 }
 
 /**
- * Navigate to delete confirmation page
- */
-function goToDeleteConfirmation(sessionId, event) {
-    if (event) {
-        event.stopPropagation();
-    }
-    window.location.href = `/delete-confirmation.html?sessionId=${sessionId}`;
-}
-
-/**
  * Initialize details page
  */
 async function initializeDetailsPage() {
@@ -308,46 +298,6 @@ async function initializeDetailsPage() {
 /**
  * Initialize delete confirmation page
  */
-function initializeDeleteConfirmationPage() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('sessionId');
-
-    if (!sessionId) {
-        console.error('No session ID provided');
-        return;
-    }
-
-    // Set confirmation message
-    const confirmTitle = document.getElementById('confirmTitle');
-    const confirmMessage = document.getElementById('confirmMessage');
-
-    if (confirmTitle) {
-        // Use textContent for safe rendering
-        confirmTitle.textContent = `Delete Session #${sessionId}`;
-    }
-    if (confirmMessage) {
-        confirmMessage.textContent = `Are you sure you want to delete session #${sessionId}? This action cannot be undone.`;
-    }
-
-    // Store session ID for deletion
-    window.sessionToDelete = sessionId;
-}
-
-/**
- * Confirm delete operation
- */
-async function confirmDelete() {
-    if (window.sessionToDelete) {
-        const success = await apiDeleteSession(window.sessionToDelete);
-        if (success) {
-            alert('Session deleted successfully');
-            goToDashboard();
-        } else {
-            alert('Failed to delete session');
-        }
-    }
-}
-
 function showDeleteModal(sessionId, event) {
     if (event) {
         event.stopPropagation();
@@ -693,16 +643,6 @@ function bindContextModalActions() {
     }
 }
 
-// Add CSS animation for spinner
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-`;
-document.head.appendChild(style);
-
 // Page-specific initialization
 document.addEventListener('DOMContentLoaded', function() {
     console.log('[init] DOMContentLoaded fired');
@@ -713,8 +653,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (pathname.includes('details.html')) {
         initializeDetailsPage();
         bindContextModalActions();
-    } else if (pathname.includes('delete-confirmation.html')) {
-        initializeDeleteConfirmationPage();
     } else if (pathname === '/' || pathname.includes('dashboard.html')) {
         // Dashboard page - load sessions
         loadAndDisplaySessions();
