@@ -40,6 +40,24 @@ async def lifespan(app: FastAPI):
         conn = get_connection()
         conn.execute("UPDATE sessions SET end_time = start_time WHERE end_time IS NULL")
         conn.commit()
+
+        rows = conn.execute(
+            "SELECT id, screen_text, audio_text FROM session_data WHERE topic IS NULL"
+        ).fetchall()
+        if rows:
+            print(f"[server] Backfilling topic for {len(rows)} session_data rows...")
+            for row in rows:
+                text_list = []
+                if row["screen_text"]:
+                    text_list.append(row["screen_text"])
+                if row["audio_text"]:
+                    text_list.append(row["audio_text"])
+                topic = extract_smart_title(text_list)
+                conn.execute(
+                    "UPDATE session_data SET topic=? WHERE id=?",
+                    (topic, row["id"]),
+                )
+            conn.commit()
     except Exception as e:
         print(f"[server] Failed to heal sessions: {e}")
     finally:
