@@ -634,6 +634,16 @@ function closeContextModalOnOverlay(event) {
     }
 }
 
+function bindContextModalActions() {
+    const closeBtn = document.querySelector('.modal-close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            closeContextModal();
+        });
+    }
+}
+
 // Add CSS animation for spinner
 const style = document.createElement('style');
 style.textContent = `
@@ -653,6 +663,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (pathname.includes('details.html')) {
         initializeDetailsPage();
+        bindContextModalActions();
     } else if (pathname.includes('delete-confirmation.html')) {
         initializeDeleteConfirmationPage();
     } else if (pathname === '/' || pathname.includes('dashboard.html')) {
