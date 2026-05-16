@@ -602,7 +602,7 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
 }
 
 .modal-content {
-    background: var(--surface);
+    background: var(--surface-alt);
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
     width: 90%;
@@ -611,7 +611,7 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
 }
 .text-inspector {
     max-width: 650px;
-    background: var(--surface);
+    background: var(--surface-alt);
     border: 1px solid var(--border);
 }
 .inspector-box {
@@ -627,14 +627,14 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
     color: var(--text-main);
     white-space: pre-wrap;
 }
-.close-x-btn {
+.modal-close-btn {
     background: transparent;
     border: none;
     color: var(--text-muted);
     font-size: 1.5rem;
     cursor: pointer;
 }
-.close-x-btn:hover {
+.modal-close-btn:hover {
     color: var(--danger);
 }
 
@@ -651,6 +651,7 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
 
 .modal-body {
     padding: 1rem 1.5rem;
+    background: var(--surface-alt);
 }
 
 .modal-body input {
