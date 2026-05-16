@@ -34,7 +34,8 @@ function extractKeyTopic(rows) {
         }
     });
 
-    return topWord || 'N/A';
+    if (!topWord) return 'N/A';
+    return topWord.charAt(0).toUpperCase() + topWord.slice(1);
 }
 
 function extractChunkTopic(text) {
@@ -149,7 +150,9 @@ async function fetchAndRenderChart(sessionId) {
                 const peakValue = (peakRow.frustration_score || 0) * 100;
                 peakFrustrationValue.textContent = `${peakValue.toFixed(0)}%`;
                 if (peakFrustrationTime) {
-                    peakFrustrationTime.textContent = `Time: ${peakRow.timestampStr || '--'}`;
+                    const topicSource = peakRow.screen_text || peakRow.audio_text || '';
+                    const topicLabel = topicSource ? extractChunkTopic(String(topicSource)) : 'N/A';
+                    peakFrustrationTime.textContent = `Time: ${peakRow.timestampStr || '--'} | Topic: ${topicLabel}`;
                 }
             } else {
                 peakFrustrationValue.textContent = '--%';
@@ -215,14 +218,21 @@ function switchChart(type) {
     // Handle Friction Points UI mapping dynamically
     const frictionList = document.getElementById('frictionPointsList');
     const container = frictionList ? frictionList.parentElement : null;
+    const detailsLayout = document.querySelector('.details-layout');
 
     if (container && frictionList) {
         frictionList.innerHTML = ''; // Clear previous content
 
         if (type === 'engagement') {
-            container.style.display = 'none';
+            if (detailsLayout) {
+                detailsLayout.classList.add('full-width');
+            }
+            container.classList.add('is-hidden');
         } else {
-            container.style.display = 'block';
+            if (detailsLayout) {
+                detailsLayout.classList.remove('full-width');
+            }
+            container.classList.remove('is-hidden');
             let issuesHtml = '';
 
             // Filter and sort the raw data

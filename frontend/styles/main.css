@@ -300,7 +300,24 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
 .card-title { font-weight: 500; font-size: 1rem; color: var(--text-main); word-break: break-word; }
 .card-date { font-size: 0.75rem; color: var(--text-muted); }
-.card-footer { display: flex; gap: 0.5rem; }
+.card-footer { display: flex; gap: 0.5rem; align-items: center; }
+.delete-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 50%;
+    padding: 0.25rem;
+    border: 1px solid transparent;
+}
+.delete-btn .material-symbols-rounded {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+.delete-btn:hover {
+    background: var(--surface-alt);
+}
+.delete-btn:hover .material-symbols-rounded {
+    color: var(--danger);
+}
 .chip {
     background: var(--surface-alt);
     padding: 0.25rem 0.5rem;
@@ -364,6 +381,9 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
     grid-template-columns: minmax(0, 1fr) 340px;
     gap: 2rem;
     align-items: start;
+}
+.details-layout.full-width {
+    grid-template-columns: 1fr;
 }
 .details-main {
     display: flex;
@@ -498,6 +518,11 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
 }
 .friction-sidebar {
     height: 100%;
+}
+.friction-sidebar.is-hidden {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
 }
 .sidebar-header {
     display: flex;
