@@ -8,6 +8,7 @@ window.processingSessionId = null;
 let statusPollInterval = null;
 let recordingInterval = null;
 let recordingStartTime = null;
+let sessionToDeleteId = null;
 
 // Use a promise-based lock for loading sessions
 let loadSessionsPromise = null;
@@ -154,7 +155,7 @@ async function loadAndDisplaySessions() {
                                 <div class="card-footer">
                                     <span class="chip">${duration}</span>
                                     <span class="chip">ID: ${s.id}</span>
-                                    <button class="delete-btn" onclick="event.stopPropagation(); goToDeleteConfirmation(${s.id}, event)">
+                                    <button class="delete-btn" onclick="event.stopPropagation(); showDeleteModal(${s.id}, event)">
                                         <span class="material-symbols-rounded">delete</span>
                                     </button>
                                 </div>
@@ -344,6 +345,54 @@ async function confirmDelete() {
         } else {
             alert('Failed to delete session');
         }
+    }
+}
+
+function showDeleteModal(sessionId, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    sessionToDeleteId = sessionId;
+    const modal = document.getElementById('deleteSessionModal');
+    const nameEl = document.getElementById('deleteSessionName');
+    const card = event ? event.target.closest('.session-card') : null;
+    let sessionName = 'this session';
+    if (card && card.dataset.sessionTitle) {
+        sessionName = decodeURIComponent(card.dataset.sessionTitle);
+    }
+    if (nameEl) {
+        nameEl.textContent = sessionName || 'this session';
+    }
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeDeleteModal() {
+    sessionToDeleteId = null;
+    const modal = document.getElementById('deleteSessionModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function closeDeleteModalOnOverlay(event) {
+    const modal = document.getElementById('deleteSessionModal');
+    if (event.target === modal) {
+        closeDeleteModal();
+    }
+}
+
+async function confirmDeleteSession() {
+    if (!sessionToDeleteId) {
+        return;
+    }
+    const success = await apiDeleteSession(sessionToDeleteId);
+    if (success) {
+        closeDeleteModal();
+        await loadAndDisplaySessions();
+    } else {
+        alert('Failed to delete session');
     }
 }
 

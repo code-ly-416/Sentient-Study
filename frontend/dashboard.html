@@ -91,6 +91,27 @@
         </div>
     </div>
 
+    <div id="deleteSessionModal" class="modal-overlay" style="display: none;" onclick="closeDeleteModalOnOverlay(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Delete Session</h3>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Are you sure you want to permanently delete <strong id="deleteSessionName" style="color: var(--danger);">this session</strong>? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeDeleteModal()">
+                    <span class="material-symbols-rounded">cancel</span>
+                    Cancel
+                </button>
+                <button class="btn-primary" style="background: var(--danger);" onclick="confirmDeleteSession()">
+                    <span class="material-symbols-rounded">delete</span>
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- External JavaScript Files - Loaded in order: API, Charts, UI -->
     <script src="scripts/api.js"></script>
     <script src="scripts/charts.js"></script>
