@@ -52,9 +52,10 @@ def extract_smart_title(text_list: list[str]) -> str:
     title = " ".join([t.title() for t in top_terms])
     return title.strip() or "Untitled Session"
 
-def extract_session_key_topic(text_list: list[str]) -> str:
-    """Extract a single-word key topic from a list of texts."""
-    combined = " ".join([text for text in text_list if text]).strip()
+
+def extract_session_key_topic(topic_list: list[str]) -> str:
+    """Extract the single most common keyword from pre-computed chunk topics."""
+    combined = " ".join([text for text in topic_list if text]).strip()
     if not combined:
         return "N/A"
 
@@ -75,13 +76,14 @@ def extract_session_key_topic(text_list: list[str]) -> str:
     top_term, _ = weighted.most_common(1)[0]
     return top_term.title()
 
+
 def generate_context_description(ocr_text: str, audio_text: str) -> str:
     parts = []
     ocr_text = (ocr_text or "").strip()
     audio_text = (audio_text or "").strip()
 
     if ocr_text:
-        tokens = re.findall(r"[A-Za-z][A-Za-z0-9_\-]{2,}", ocr_text) # At least length 3? the user said "strip common STOP_WORDS...", let's just do > 0
+        tokens = re.findall(r"[A-Za-z][A-Za-z0-9_\-]{2,}", ocr_text)
         valid_tokens = []
         seen = set()
         for token in tokens:
@@ -90,7 +92,6 @@ def generate_context_description(ocr_text: str, audio_text: str) -> str:
                 if cleaned not in seen:
                     seen.add(cleaned)
                     valid_tokens.append(token)
-        # Limit to top 6
         valid_tokens = valid_tokens[:6]
         if valid_tokens:
             keywords = ", ".join(valid_tokens)
@@ -106,5 +107,4 @@ def generate_context_description(ocr_text: str, audio_text: str) -> str:
 
     if not parts:
         return 'No active telemetry logged during this interval.'
-
     return " ".join(parts)

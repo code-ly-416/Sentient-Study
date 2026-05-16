@@ -1,7 +1,5 @@
 """
 SentientStudy - Simple web server.
-Run: cd backend && python main.py
-Open: http://localhost:8000
 """
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -22,6 +20,7 @@ FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
 import shutil
 from contextlib import asynccontextmanager
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     temp_dir = os.path.join(PROJECT_ROOT, "data", "temp")
@@ -34,7 +33,6 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"[server] Failed to clean up temp dir: {e}")
 
-    # Auto-heal abandoned sessions
     print("[server] Auto-healing abandoned sessions...")
     try:
         conn = get_connection()
@@ -72,20 +70,15 @@ async def lifespan(app: FastAPI):
                 )
             conn.commit()
 
-        # Migrate session key_topic
-        session_rows = conn.execute("SELECT id FROM sessions WHERE key_topic IS NULL").fetchall()
+        # Migrate session key_topic using pre-computed chunk topics
+        session_rows = conn.execute("SELECT id FROM sessions WHERE key_topic IS NULL OR key_topic = 'N/A'").fetchall()
         if session_rows:
             print(f"[server] Backfilling key_topic for {len(session_rows)} sessions...")
             for row in session_rows:
                 sid = row["id"]
-                data_rows = conn.execute("SELECT screen_text, audio_text FROM session_data WHERE session_id=?", (sid,)).fetchall()
-                text_list = []
-                for drow in data_rows:
-                    if drow["screen_text"]:
-                        text_list.append(drow["screen_text"])
-                    if drow["audio_text"]:
-                        text_list.append(drow["audio_text"])
-                key_topic = extract_session_key_topic(text_list)
+                data_rows = conn.execute("SELECT topic FROM session_data WHERE session_id=?", (sid,)).fetchall()
+                topics = [drow["topic"] for drow in data_rows if drow["topic"]]
+                key_topic = extract_session_key_topic(topics)
                 conn.execute("UPDATE sessions SET key_topic=? WHERE id=?", (key_topic, sid))
             conn.commit()
 
@@ -97,6 +90,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
+
 app = FastAPI(title="SentientStudy", lifespan=lifespan)
 
 app.add_middleware(
@@ -106,23 +100,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- State ---
+
 class AppState:
     active_session_id = None
     is_recording = False
     is_processing = False
 
+
 state = AppState()
+
 
 class StartRequest(BaseModel):
     title: str = "Study Session"
 
-# --- Routes ---
+
 @app.get("/")
 def read_root():
     return FileResponse(os.path.join(FRONTEND_DIR, "dashboard.html"))
 
-# --- API ---
+
 @app.post("/api/start")
 def start_recording(req: StartRequest):
     if state.is_recording:
@@ -132,6 +128,7 @@ def start_recording(req: StartRequest):
     state.is_recording = True
     engine.start(session_id)
     return {"status": "ok", "session_id": session_id}
+
 
 @app.post("/api/stop")
 def stop_recording(background_tasks: BackgroundTasks):
@@ -153,18 +150,22 @@ def stop_recording(background_tasks: BackgroundTasks):
         try:
             conn = get_connection()
             rows = conn.execute(
-                "SELECT screen_text, audio_text FROM session_data WHERE session_id=?",
+                "SELECT screen_text, audio_text, topic FROM session_data WHERE session_id=?",
                 (sid,),
             ).fetchall()
             text_list = []
+            topics = []
             for row in rows:
                 if row["screen_text"]:
                     text_list.append(row["screen_text"])
                 if row["audio_text"]:
                     text_list.append(row["audio_text"])
+                if row["topic"]:
+                    topics.append(row["topic"])
             smart_title = extract_smart_title(text_list)
             update_session_title(sid, smart_title)
-            session_key_topic = extract_session_key_topic(text_list)
+            
+            session_key_topic = extract_session_key_topic(topics)
             update_session_key_topic(sid, session_key_topic)
         except Exception as e:
             print(f"[server] Failed to update session title: {e}")
@@ -175,6 +176,7 @@ def stop_recording(background_tasks: BackgroundTasks):
     background_tasks.add_task(stop_and_title)
     return {"status": "ok", "session_id": sid}
 
+
 @app.get("/api/status")
 def get_status():
     return {
@@ -183,32 +185,32 @@ def get_status():
         "session_id": state.active_session_id,
     }
 
+
 @app.get("/api/sessions")
 def get_sessions():
     conn = None
     try:
         conn = get_connection()
-        # Use DISTINCT to avoid duplicates (though id is primary key, just in case)
         rows = conn.execute("SELECT DISTINCT * FROM sessions ORDER BY id DESC").fetchall()
         return {"sessions": [dict(r) for r in rows]}
     finally:
         if conn:
             conn.close()
 
+
 @app.delete("/api/sessions/{session_id}")
 def delete_session(session_id: int):
     conn = None
     try:
         conn = get_connection()
-        # First delete related session_data
         conn.execute("DELETE FROM session_data WHERE session_id=?", (session_id,))
-        # Then delete the session itself
         conn.execute("DELETE FROM sessions WHERE id=?", (session_id,))
         conn.commit()
         return {"status": "ok", "message": f"Session {session_id} deleted"}
     finally:
         if conn:
             conn.close()
+
 
 @app.get("/api/results/{session_id}")
 def get_results(session_id: int):
@@ -223,7 +225,7 @@ def get_results(session_id: int):
         if conn:
             conn.close()
 
-# Serve static files (must be last)
+
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 
 if __name__ == "__main__":
