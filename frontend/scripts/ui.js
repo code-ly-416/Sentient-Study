@@ -142,6 +142,7 @@ async function loadAndDisplaySessions() {
                         const escapedTitle = escapeHTML(displayTitle);
                         const escapedDate = escapeHTML(new Date(s.start_time).toLocaleDateString());
                         const escapedTime = escapeHTML(new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                        const escapedKeyTopic = escapeHTML(s.key_topic || 'N/A');
 
                         // Use a safe onclick handler that doesn't embed data in the HTML string
                         html += `
@@ -154,7 +155,7 @@ async function loadAndDisplaySessions() {
                                 </div>
                                 <div class="card-footer">
                                     <span class="chip">${duration}</span>
-                                    <span class="chip">${escapedTitle}</span>
+                                    <span class="chip">${escapedKeyTopic}</span>
                                     <button class="delete-btn" onclick="event.stopPropagation(); showDeleteModal(${s.id}, event)">
                                         <span class="material-symbols-rounded">delete</span>
                                     </button>

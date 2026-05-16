@@ -37,7 +37,8 @@ def init_db():
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 start_time DATETIME NOT NULL,
                 end_time   DATETIME,
-                title      TEXT
+                title      TEXT,
+                key_topic  TEXT
             )
         """)
 
@@ -62,6 +63,10 @@ def init_db():
             cur.execute("ALTER TABLE session_data ADD COLUMN topic TEXT")
         if "description" not in columns:
             cur.execute("ALTER TABLE session_data ADD COLUMN description TEXT")
+
+        session_columns = [row[1] for row in cur.execute("PRAGMA table_info(sessions)").fetchall()]
+        if "key_topic" not in session_columns:
+            cur.execute("ALTER TABLE sessions ADD COLUMN key_topic TEXT")
 
         conn.commit()
     finally:
@@ -117,6 +122,16 @@ def update_session_title(session_id: int, title: str):
     finally:
         if conn:
             conn.close()
+
+
+def update_session_key_topic(session_id: int, key_topic: str):
+    """Update the persisted key_topic for a session."""
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE sessions SET key_topic = ? WHERE id = ?", (key_topic, session_id))
+        conn.commit()
+    finally:
+        conn.close()
 
 
 # Auto-initialise on import

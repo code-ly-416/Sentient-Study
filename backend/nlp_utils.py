@@ -52,6 +52,29 @@ def extract_smart_title(text_list: list[str]) -> str:
     title = " ".join([t.title() for t in top_terms])
     return title.strip() or "Untitled Session"
 
+def extract_session_key_topic(text_list: list[str]) -> str:
+    """Extract a single-word key topic from a list of texts."""
+    combined = " ".join([text for text in text_list if text]).strip()
+    if not combined:
+        return "N/A"
+
+    tokens = re.findall(r"[a-zA-Z0-9]{4,}", combined)
+    if not tokens:
+        return "N/A"
+
+    weighted = Counter()
+    for token in tokens:
+        cleaned = token.lower()
+        if cleaned in STOP_WORDS or cleaned in UI_NOISE:
+            continue
+        weighted[cleaned] += 1
+
+    if not weighted:
+        return "N/A"
+
+    top_term, _ = weighted.most_common(1)[0]
+    return top_term.title()
+
 def generate_context_description(ocr_text: str, audio_text: str) -> str:
     parts = []
     ocr_text = (ocr_text or "").strip()

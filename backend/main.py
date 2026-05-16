@@ -12,9 +12,9 @@ from pydantic import BaseModel
 import uvicorn
 import os
 
-from database import create_session, end_session, get_connection, update_session_title
+from database import create_session, end_session, get_connection, update_session_title, update_session_key_topic
 from capture_engine import engine
-from nlp_utils import extract_smart_title, generate_context_description
+from nlp_utils import extract_smart_title, generate_context_description, extract_session_key_topic
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
@@ -71,6 +71,24 @@ async def lifespan(app: FastAPI):
                     (description, row["id"]),
                 )
             conn.commit()
+
+        # Migrate session key_topic
+        session_rows = conn.execute("SELECT id FROM sessions WHERE key_topic IS NULL").fetchall()
+        if session_rows:
+            print(f"[server] Backfilling key_topic for {len(session_rows)} sessions...")
+            for row in session_rows:
+                sid = row["id"]
+                data_rows = conn.execute("SELECT screen_text, audio_text FROM session_data WHERE session_id=?", (sid,)).fetchall()
+                text_list = []
+                for drow in data_rows:
+                    if drow["screen_text"]:
+                        text_list.append(drow["screen_text"])
+                    if drow["audio_text"]:
+                        text_list.append(drow["audio_text"])
+                key_topic = extract_session_key_topic(text_list)
+                conn.execute("UPDATE sessions SET key_topic=? WHERE id=?", (key_topic, sid))
+            conn.commit()
+
     except Exception as e:
         print(f"[server] Failed to heal sessions: {e}")
     finally:
@@ -146,6 +164,8 @@ def stop_recording(background_tasks: BackgroundTasks):
                     text_list.append(row["audio_text"])
             smart_title = extract_smart_title(text_list)
             update_session_title(sid, smart_title)
+            session_key_topic = extract_session_key_topic(text_list)
+            update_session_key_topic(sid, session_key_topic)
         except Exception as e:
             print(f"[server] Failed to update session title: {e}")
         finally:
