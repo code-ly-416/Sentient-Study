@@ -51,3 +51,37 @@ def extract_smart_title(text_list: list[str]) -> str:
     top_terms = [term for term, _ in weighted.most_common(3)]
     title = " ".join([t.title() for t in top_terms])
     return title.strip() or "Untitled Session"
+
+def generate_context_description(ocr_text: str, audio_text: str) -> str:
+    parts = []
+    ocr_text = (ocr_text or "").strip()
+    audio_text = (audio_text or "").strip()
+
+    if ocr_text:
+        tokens = re.findall(r"[A-Za-z][A-Za-z0-9_\-]{2,}", ocr_text) # At least length 3? the user said "strip common STOP_WORDS...", let's just do > 0
+        valid_tokens = []
+        seen = set()
+        for token in tokens:
+            cleaned = token.strip("-_ ").lower()
+            if cleaned not in STOP_WORDS and cleaned not in UI_NOISE:
+                if cleaned not in seen:
+                    seen.add(cleaned)
+                    valid_tokens.append(token)
+        # Limit to top 6
+        valid_tokens = valid_tokens[:6]
+        if valid_tokens:
+            keywords = ", ".join(valid_tokens)
+            parts.append(f"On-screen workspace activity centered heavily around: {keywords}.")
+
+    if audio_text:
+        aud = audio_text
+        if len(aud) > 0:
+            aud = aud[0].upper() + aud[1:]
+        if not aud.endswith(('.', '!', '?')):
+            aud += '.'
+        parts.append(f'Spoken concept indicators transcribed: "{aud}"')
+
+    if not parts:
+        return 'System idle. No significant workspace interaction or vocal metrics recorded during this block window.'
+
+    return " ".join(parts)

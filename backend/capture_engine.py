@@ -19,7 +19,7 @@ from PIL import Image
 import torch
 import soundcard as sc
 
-from nlp_utils import extract_smart_title
+from nlp_utils import extract_smart_title, generate_context_description
 
 from database import get_connection
 
@@ -221,12 +221,13 @@ class CaptureEngine:
 
         # 4. Save to DB
         topic = extract_smart_title([ocr_text, aud_text])
+        description = generate_context_description(ocr_text, aud_text)
         conn = None
         try:
             conn = get_connection()
             conn.execute(
-                "INSERT INTO session_data (session_id,timestamp,engagement_score,confusion_score,frustration_score,screen_text,audio_text,topic) VALUES (?,?,?,?,?,?,?,?)",
-                (session_id, ts, es, cs_, fs, ocr_text, aud_text, topic),
+                "INSERT INTO session_data (session_id,timestamp,engagement_score,confusion_score,frustration_score,screen_text,audio_text,topic,description) VALUES (?,?,?,?,?,?,?,?,?)",
+                (session_id, ts, es, cs_, fs, ocr_text, aud_text, topic, description),
             )
             conn.commit()
             print(f"[chunk] Processed 10s chunk at offset {offset_seconds}s (OCR: {len(ocr_text)} chars, Audio: {len(aud_text)} chars)")

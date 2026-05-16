@@ -14,7 +14,7 @@ import os
 
 from database import create_session, end_session, get_connection, update_session_title
 from capture_engine import engine
-from nlp_utils import extract_smart_title
+from nlp_utils import extract_smart_title, generate_context_description
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
@@ -56,6 +56,19 @@ async def lifespan(app: FastAPI):
                 conn.execute(
                     "UPDATE session_data SET topic=? WHERE id=?",
                     (topic, row["id"]),
+                )
+            conn.commit()
+
+        desc_rows = conn.execute(
+            "SELECT id, screen_text, audio_text FROM session_data WHERE description IS NULL"
+        ).fetchall()
+        if desc_rows:
+            print(f"[server] Backfilling description for {len(desc_rows)} session_data rows...")
+            for row in desc_rows:
+                description = generate_context_description(row["screen_text"] or "", row["audio_text"] or "")
+                conn.execute(
+                    "UPDATE session_data SET description=? WHERE id=?",
+                    (description, row["id"]),
                 )
             conn.commit()
     except Exception as e:

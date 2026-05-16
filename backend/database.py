@@ -52,6 +52,7 @@ def init_db():
                 screen_text       TEXT,
                 audio_text        TEXT,
                 topic             TEXT,
+                description       TEXT,
                 FOREIGN KEY (session_id) REFERENCES sessions (id)
             )
         """)
@@ -59,6 +60,8 @@ def init_db():
         columns = [row[1] for row in cur.execute("PRAGMA table_info(session_data)").fetchall()]
         if "topic" not in columns:
             cur.execute("ALTER TABLE session_data ADD COLUMN topic TEXT")
+        if "description" not in columns:
+            cur.execute("ALTER TABLE session_data ADD COLUMN description TEXT")
 
         conn.commit()
     finally:
