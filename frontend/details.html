@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
 
     <!-- External CSS -->
     <link rel="stylesheet" href="styles/main.css">
@@ -17,10 +19,11 @@
     <!-- Chart.js for graphing -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
     <header>
-        <div class="logo">
+        <div class="logo" onclick="window.location.href='/'" style="cursor: pointer;">
             Sentient Study
         </div>
         <nav class="top-nav">
@@ -72,9 +75,12 @@
                     <!-- Main Analytics Chart -->
                     <div class="analytics-card wide">
                         <div class="chart-tabs" data-active="engagement">
-                            <button class="chart-tab active" data-chart="engagement" onclick="switchChart('engagement')">Engagement</button>
-                            <button class="chart-tab" data-chart="confusion" onclick="switchChart('confusion')">Confusion</button>
-                            <button class="chart-tab" data-chart="frustration" onclick="switchChart('frustration')">Frustration</button>
+                            <button class="chart-tab active" data-chart="engagement"
+                                onclick="switchChart('engagement')">Engagement</button>
+                            <button class="chart-tab" data-chart="confusion"
+                                onclick="switchChart('confusion')">Confusion</button>
+                            <button class="chart-tab" data-chart="frustration"
+                                onclick="switchChart('frustration')">Frustration</button>
                         </div>
                         <div class="chart-canvas">
                             <canvas id="analyticsChart"></canvas>
@@ -107,11 +113,12 @@
                 <h3 id="modalTimeMarker">Friction Point Context</h3>
                 <button class="modal-close-btn" onclick="closeContextModal()">&times;</button>
             </div>
-              <div class="modal-body">
-                  <h4>Telemetry Context</h4>
-                  <div id="modalDescriptionBody" class="inspector-box"></div>
-              </div>
+            <div class="modal-body">
+                <h4>Telemetry Context</h4>
+                <div id="modalDescriptionBody" class="inspector-box"></div>
+            </div>
         </div>
     </div>
 </body>
+
 </html>
