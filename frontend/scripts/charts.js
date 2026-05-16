@@ -151,7 +151,7 @@ async function fetchAndRenderChart(sessionId) {
                 peakFrustrationValue.textContent = `${peakValue.toFixed(0)}%`;
                 if (peakFrustrationTime) {
                     const topicSource = peakRow.screen_text || peakRow.audio_text || '';
-                    const topicLabel = topicSource ? extractChunkTopic(String(topicSource)) : 'N/A';
+                    const topicLabel = peakRow.topic ? peakRow.topic : (topicSource ? extractChunkTopic(String(topicSource)) : 'N/A');
                     peakFrustrationTime.textContent = `Time: ${peakRow.timestampStr || '--'} | Topic: ${topicLabel}`;
                 }
             } else {
@@ -253,22 +253,15 @@ function switchChart(type) {
                     const issueClass = type === 'confusion' ? 'confusion' : '';
                     const labelText = type === 'confusion' ? `Confusion (${score.toFixed(0)}%)` : `Frustration (${score.toFixed(0)}%)`;
 
-                    let contentHtml = '';
-                    if (row.audio_text) {
-                        const escapedAudio = escapeHTML(row.audio_text);
-                        contentHtml += `<div class="issue-text"><strong>Heard:</strong> ${escapedAudio}</div>`;
-                    }
-                    if (row.screen_text) {
-                        const screenText = row.screen_text.length > 150 ? row.screen_text.substring(0, 150) + '...' : row.screen_text;
-                        const escapedScreen = escapeHTML(screenText);
-                        contentHtml += `<div class="issue-text"><strong>Screen:</strong> ${escapedScreen}</div>`;
-                    }
-                    if (!row.audio_text && !row.screen_text) {
-                        contentHtml += `<div class="issue-text">(No context captured at this peak)</div>`;
-                    }
+                    const topicLabel = row.topic ? row.topic : extractKeyTopic(row.screen_text ? [row.screen_text] : []);
+                    const safeTopic = escapeHTML(topicLabel);
+                    const encodedOcr = encodeURIComponent(row.screen_text || '');
+                    const encodedAudio = encodeURIComponent(row.audio_text || '');
+                    const encodedTime = encodeURIComponent(row.timestampStr || '--');
+                    const contentHtml = `<div class="issue-text">Topic: ${safeTopic}</div>`;
 
                     issuesHtml += `
-                    <div class="issue-item ${issueClass}">
+                    <div class="issue-item ${issueClass}" data-ocr="${encodedOcr}" data-audio="${encodedAudio}" data-time="${encodedTime}">
                         <span class="issue-time">Time: ${row.timestampStr} — ${labelText}</span>
                         ${contentHtml}
                     </div>
@@ -276,6 +269,32 @@ function switchChart(type) {
                 });
             }
             frictionList.innerHTML = issuesHtml;
+
+            frictionList.querySelectorAll('.issue-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const ocrText = decodeURIComponent(item.dataset.ocr || '').trim();
+                    const audioText = decodeURIComponent(item.dataset.audio || '').trim();
+                    const timeLabel = decodeURIComponent(item.dataset.time || '--');
+
+                    const modal = document.getElementById('contextModal');
+                    const modalTime = document.getElementById('modalTimeMarker');
+                    const modalOcr = document.getElementById('modalOcrBody');
+                    const modalAudio = document.getElementById('modalAudioBody');
+
+                    if (modalTime) {
+                        modalTime.textContent = `Friction Point Context — ${timeLabel}`;
+                    }
+                    if (modalOcr) {
+                        modalOcr.textContent = ocrText || '(No OCR captured)';
+                    }
+                    if (modalAudio) {
+                        modalAudio.textContent = audioText || '(No audio captured)';
+                    }
+                    if (modal) {
+                        modal.style.display = 'flex';
+                    }
+                });
+            });
         }
     }
 

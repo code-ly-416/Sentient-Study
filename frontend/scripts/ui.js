@@ -608,6 +608,20 @@ function updateUIForRecording(isRecording) {
     }
 }
 
+function closeContextModal() {
+    const modal = document.getElementById('contextModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function closeContextModalOnOverlay(event) {
+    const modal = document.getElementById('contextModal');
+    if (event.target === modal) {
+        closeContextModal();
+    }
+}
+
 // Add CSS animation for spinner
 const style = document.createElement('style');
 style.textContent = `

@@ -325,11 +325,16 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
 .card-date { font-size: 0.75rem; color: var(--text-muted); }
 .card-footer { display: flex; gap: 0.5rem; align-items: center; }
 .delete-btn {
-    background: transparent;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
     color: var(--text-muted);
     border-radius: 50%;
     padding: 0.25rem;
-    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .delete-btn .material-symbols-rounded {
     color: var(--text-muted);
@@ -603,6 +608,34 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
     width: 90%;
     max-width: 500px;
     animation: slideUp 0.3s ease;
+}
+.text-inspector {
+    max-width: 650px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+.inspector-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1rem;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    max-height: 180px;
+    overflow-y: auto;
+    margin-bottom: 1.25rem;
+    color: var(--text-main);
+    white-space: pre-wrap;
+}
+.close-x-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+.close-x-btn:hover {
+    color: var(--danger);
 }
 
 .modal-header {

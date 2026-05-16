@@ -101,5 +101,20 @@
     <script src="scripts/api.js"></script>
     <script src="scripts/charts.js"></script>
     <script src="scripts/ui.js"></script>
+
+    <div id="contextModal" class="modal-overlay" style="display: none;" onclick="closeContextModalOnOverlay(event)">
+        <div class="modal-content text-inspector">
+            <div class="modal-header">
+                <h3 id="modalTimeMarker">Friction Point Context</h3>
+                <button class="close-x-btn" onclick="closeContextModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h4>Screen Context (OCR)</h4>
+                <div id="modalOcrBody" class="inspector-box"></div>
+                <h4>Audio Log (Whisper)</h4>
+                <div id="modalAudioBody" class="inspector-box"></div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

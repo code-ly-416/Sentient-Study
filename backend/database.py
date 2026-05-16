@@ -51,9 +51,14 @@ def init_db():
                 frustration_score REAL,
                 screen_text       TEXT,
                 audio_text        TEXT,
+                topic             TEXT,
                 FOREIGN KEY (session_id) REFERENCES sessions (id)
             )
         """)
+
+        columns = [row[1] for row in cur.execute("PRAGMA table_info(session_data)").fetchall()]
+        if "topic" not in columns:
+            cur.execute("ALTER TABLE session_data ADD COLUMN topic TEXT")
 
         conn.commit()
     finally:
