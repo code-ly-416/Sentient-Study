@@ -82,6 +82,6 @@ def generate_context_description(ocr_text: str, audio_text: str) -> str:
         parts.append(f'Spoken concept indicators transcribed: "{aud}"')
 
     if not parts:
-        return 'System idle. No significant workspace interaction or vocal metrics recorded during this block window.'
+        return 'No active telemetry logged during this interval.'
 
     return " ".join(parts)

@@ -67,7 +67,7 @@ async function loadAndDisplaySessions() {
             let isProcessing = false;
 
             if (!sessions || sessions.length === 0) {
-                html = `<div class="empty-state">No study sessions yet. Start your first one above!</div>`;
+                html = `<div class="empty-state">No recorded sessions.</div>`;
             } else {
                 // Fetch backend status to check if processing
                 const status = await fetchBackendStatus();
@@ -184,7 +184,7 @@ async function loadAndDisplaySessions() {
         } catch (e) {
             const sessionList = AppState.elements.sessionList;
             if (sessionList) {
-                sessionList.innerHTML = `<div class="empty-state">Failed to load sessions. Is the backend running?</div>`;
+                sessionList.innerHTML = `<div class="empty-state">Connection failed.</div>`;
             }
             console.error('[loadSessions] Error:', e);
         } finally {
@@ -572,10 +572,10 @@ function updateStatusBadge(isRecording) {
     if (!badge) return;
 
     if (isRecording) {
-        badge.textContent = 'Recording Live';
+        badge.textContent = 'Recording';
         badge.className = 'status-badge recording';
     } else {
-        badge.textContent = 'System Ready';
+        badge.textContent = 'Operational';
         badge.className = 'status-badge';
     }
 }
