@@ -610,16 +610,12 @@ function updateUIForRecording(isRecording) {
 function closeContextModal() {
     const modal = document.getElementById('contextModal');
     const modalTime = document.getElementById('modalTimeMarker');
-    const modalOcr = document.getElementById('modalOcrBody');
-    const modalAudio = document.getElementById('modalAudioBody');
+    const modalDesc = document.getElementById('modalDescriptionBody');
     if (modalTime) {
         modalTime.textContent = 'Friction Point Context';
     }
-    if (modalOcr) {
-        modalOcr.textContent = '';
-    }
-    if (modalAudio) {
-        modalAudio.textContent = '';
+    if (modalDesc) {
+        modalDesc.textContent = '';
     }
     if (modal) {
         modal.style.display = 'none';

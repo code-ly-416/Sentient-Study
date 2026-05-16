@@ -69,7 +69,7 @@ function buildTooltipTopic(dataIndex) {
     const audioText = row.audio_text ? String(row.audio_text) : '';
     const combined = `${screenText} ${audioText}`.trim();
     const topic = combined ? extractChunkTopic(combined) : 'N/A';
-    return `Topic: ${topic}`;
+    return topic;
 }
 
 /**
@@ -152,7 +152,7 @@ async function fetchAndRenderChart(sessionId) {
                 if (peakFrustrationTime) {
                     const topicSource = peakRow.screen_text || peakRow.audio_text || '';
                     const topicLabel = peakRow.topic ? peakRow.topic : (topicSource ? extractChunkTopic(String(topicSource)) : 'N/A');
-                    peakFrustrationTime.textContent = `Time: ${peakRow.timestampStr || '--'} | Topic: ${topicLabel}`;
+                    peakFrustrationTime.textContent = `Time: ${peakRow.timestampStr || '--'} | ${topicLabel}`;
                 }
             } else {
                 peakFrustrationValue.textContent = '--%';
@@ -255,13 +255,12 @@ function switchChart(type) {
 
                     const topicLabel = row.topic ? row.topic : extractKeyTopic(row.screen_text ? [row.screen_text] : []);
                     const safeTopic = escapeHTML(topicLabel);
-                    const encodedOcr = encodeURIComponent(row.screen_text || '');
-                    const encodedAudio = encodeURIComponent(row.audio_text || '');
+                    const encodedDesc = encodeURIComponent(row.description || '');
                     const encodedTime = encodeURIComponent(row.timestampStr || '--');
-                    const contentHtml = `<div class="issue-text">Topic: ${safeTopic}</div>`;
+                    const contentHtml = `<div class="issue-text">${safeTopic}</div>`;
 
                     issuesHtml += `
-                    <div class="issue-item ${issueClass}" data-ocr="${encodedOcr}" data-audio="${encodedAudio}" data-time="${encodedTime}">
+                    <div class="issue-item ${issueClass}" data-description="${encodedDesc}" data-time="${encodedTime}">
                         <span class="issue-time">Time: ${row.timestampStr} — ${labelText}</span>
                         ${contentHtml}
                     </div>
@@ -272,23 +271,18 @@ function switchChart(type) {
 
             frictionList.querySelectorAll('.issue-item').forEach(item => {
                 item.addEventListener('click', () => {
-                    const ocrText = decodeURIComponent(item.dataset.ocr || '').trim();
-                    const audioText = decodeURIComponent(item.dataset.audio || '').trim();
+                    const descText = decodeURIComponent(item.dataset.description || '').trim();
                     const timeLabel = decodeURIComponent(item.dataset.time || '--');
 
                     const modal = document.getElementById('contextModal');
                     const modalTime = document.getElementById('modalTimeMarker');
-                    const modalOcr = document.getElementById('modalOcrBody');
-                    const modalAudio = document.getElementById('modalAudioBody');
+                    const modalDesc = document.getElementById('modalDescriptionBody');
 
                     if (modalTime) {
                         modalTime.textContent = `Friction Point Context — ${timeLabel}`;
                     }
-                    if (modalOcr) {
-                        modalOcr.textContent = ocrText || '(No OCR captured)';
-                    }
-                    if (modalAudio) {
-                        modalAudio.textContent = audioText || '(No audio captured)';
+                    if (modalDesc) {
+                        modalDesc.textContent = descText || 'No analytical context recorded for this block.';
                     }
                     if (modal) {
                         modal.style.display = 'flex';
