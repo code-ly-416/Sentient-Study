@@ -368,6 +368,9 @@ function destroyChart() {
 /**
  * Session Assistant — Async query handler
  */
+/**
+ * Session Assistant — Async query handler
+ */
 async function executeAssistantQuery() {
     const inputEl = document.getElementById('assistantQueryInput');
     const btnEl = document.getElementById('submitQueryBtn');
@@ -378,12 +381,21 @@ async function executeAssistantQuery() {
     const sessionId = new URLSearchParams(window.location.search).get('sessionId');
     const queryText = inputEl.value.trim();
 
-    if (!sessionId || !queryText) return;
+    if (!sessionId) {
+        responseArea.textContent = 'Error: No active session selected.';
+        return;
+    }
+
+    if (!queryText) {
+        // Prevent silent failure if the user clicks execute without typing
+        responseArea.textContent = 'Please enter an analytical query first.';
+        return;
+    }
 
     // Transition to processing state
     inputEl.disabled = true;
     btnEl.disabled = true;
-    responseArea.textContent = 'Analyzing session telemetry — inference in progress...';
+    responseArea.innerHTML = '<span style="color: var(--text-muted); font-style: italic; animation: pulse 1.5s infinite;">Analyzing session telemetry — inference in progress...</span>';
 
     try {
         const resp = await fetch(`/api/query/${sessionId}`, {
@@ -405,6 +417,7 @@ async function executeAssistantQuery() {
     } finally {
         inputEl.disabled = false;
         btnEl.disabled = false;
+        inputEl.value = ''; // Clear input on success
     }
 }
 

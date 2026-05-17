@@ -20,7 +20,6 @@ SYSTEM_PROMPT = (
     "Reference specific timestamps, metric values, and topic context when forming conclusions."
 )
 
-
 def synthesize_session_query(session_id: int, user_query: str) -> str:
     """Synthesize an analytical response to a user query using local LLM inference."""
     conn = None
@@ -91,7 +90,12 @@ def synthesize_session_query(session_id: int, user_query: str) -> str:
         with urllib.request.urlopen(req, timeout=120) as resp:
             body = json.loads(resp.read().decode("utf-8"))
             return body.get("response", "No response generated.")
+    except urllib.error.HTTPError as e:
+        # Ollama is alive, but rejected the request (e.g., Model Not Found)
+        error_msg = e.read().decode('utf-8')
+        return f"Ollama API Error ({e.code}): {error_msg}"
     except urllib.error.URLError:
-        return "⚠ Ollama is not running. Please start the local inference server with: ollama serve"
+        # Ollama is completely unreachable
+        return "⚠ Ollama is unreachable. Is the service running in your system tray?"
     except Exception as e:
         return f"Inference error: {e}"
