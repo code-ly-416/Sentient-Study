@@ -518,6 +518,69 @@ h2 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1rem; color: var(--tex
     border-color: var(--frustration);
 }
 
+/* Session Assistant */
+.assistant-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.assistant-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.assistant-header .material-symbols-rounded {
+    color: var(--primary);
+    font-size: 1.25rem;
+}
+.assistant-header h3 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-main);
+    margin: 0;
+}
+.assistant-log-view {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    min-height: 100px;
+    max-height: 320px;
+    overflow-y: auto;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.assistant-input-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+.assistant-input-row input {
+    flex: 1;
+    padding: 0.7rem 1rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+    background: var(--surface-alt);
+    color: var(--text-main);
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+.assistant-input-row input:focus {
+    border-color: var(--primary);
+}
+.assistant-input-row input:disabled {
+    opacity: 0.5;
+}
+.assistant-input-row .btn-primary {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .placeholder-box {
     background: var(--surface);
     border: 1px dashed #c7c7c7;

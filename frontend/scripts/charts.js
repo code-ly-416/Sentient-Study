@@ -364,3 +364,62 @@ function destroyChart() {
         AppState.chartInstance = null;
     }
 }
+
+/**
+ * Session Assistant — Async query handler
+ */
+async function executeAssistantQuery() {
+    const inputEl = document.getElementById('assistantQueryInput');
+    const btnEl = document.getElementById('submitQueryBtn');
+    const responseArea = document.getElementById('chatResponseArea');
+
+    if (!inputEl || !btnEl || !responseArea) return;
+
+    const sessionId = new URLSearchParams(window.location.search).get('sessionId');
+    const queryText = inputEl.value.trim();
+
+    if (!sessionId || !queryText) return;
+
+    // Transition to processing state
+    inputEl.disabled = true;
+    btnEl.disabled = true;
+    responseArea.textContent = 'Analyzing session telemetry — inference in progress...';
+
+    try {
+        const resp = await fetch(`/api/query/${sessionId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: queryText }),
+        });
+
+        if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            responseArea.textContent = `Error: ${errData.detail || resp.statusText}`;
+            return;
+        }
+
+        const data = await resp.json();
+        responseArea.textContent = data.response || 'No response received.';
+    } catch (e) {
+        responseArea.textContent = `Network error: ${e.message}`;
+    } finally {
+        inputEl.disabled = false;
+        btnEl.disabled = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const submitBtn = document.getElementById('submitQueryBtn');
+    const queryInput = document.getElementById('assistantQueryInput');
+
+    if (submitBtn) {
+        submitBtn.addEventListener('click', executeAssistantQuery);
+    }
+    if (queryInput) {
+        queryInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                executeAssistantQuery();
+            }
+        });
+    }
+});

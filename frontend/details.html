@@ -86,6 +86,19 @@
                             <canvas id="analyticsChart"></canvas>
                         </div>
                     </div>
+
+                    <!-- Session Assistant -->
+                    <div class="analytics-card wide assistant-card" style="margin-top: 1.5rem;">
+                        <div class="assistant-header">
+                            <span class="material-symbols-rounded">smart_toy</span>
+                            <h3>Session Assistant</h3>
+                        </div>
+                        <div id="chatResponseArea" class="assistant-log-view">Enter an analytical query below to extract contextual insights from this tracking timeline.</div>
+                        <div class="assistant-input-row">
+                            <input type="text" id="assistantQueryInput" placeholder="Ask about spikes, text topics, or vocal concept logs..." />
+                            <button id="submitQueryBtn" class="btn-primary">Execute Query</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Friction Points Sidebar -->

@@ -13,6 +13,7 @@ import os
 from database import create_session, end_session, get_connection, update_session_title, update_session_key_topic
 from capture_engine import engine
 from nlp_utils import extract_smart_title, generate_context_description, extract_session_key_topic
+from query_engine import synthesize_session_query
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
@@ -112,6 +113,10 @@ state = AppState()
 
 class StartRequest(BaseModel):
     title: str = "Study Session"
+
+
+class AssistantQueryRequest(BaseModel):
+    query: str
 
 
 @app.get("/")
@@ -224,6 +229,14 @@ def get_results(session_id: int):
     finally:
         if conn:
             conn.close()
+
+
+@app.post("/api/query/{session_id}")
+def query_session_assistant(session_id: int, req: AssistantQueryRequest):
+    if not req.query.strip():
+        raise HTTPException(400, "Query cannot be empty.")
+    result = synthesize_session_query(session_id, req.query.strip())
+    return {"response": result}
 
 
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
