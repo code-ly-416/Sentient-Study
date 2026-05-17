@@ -37,6 +37,8 @@ venv.bak/
 
 # Data and Temp files
 data/
+data/temp/
+data/embeddings/
 temp/
 
 # OS

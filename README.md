@@ -23,13 +23,19 @@ A **desktop application** that monitors engagement, confusion, and frustration d
 
    *Note: System screen reading is managed via Python-native `easyocr`. No external executable installations are required.*
 
-3. **Run the application**:
+3. **Pull required Ollama models** (for the Session Assistant):
+   ```powershell
+   ollama pull llama3.2:1b
+   ollama pull nomic-embed-text
+   ```
+
+4. **Run the application**:
    ```powershell
    cd backend
    python main.py
    ```
 
-4. **Open in browser**:
+5. **Open in browser**:
    Navigate to `http://localhost:8000`
 
 ## Project Structure
@@ -41,6 +47,8 @@ sentient-project/
 │   ├── capture_engine.py    # Video / audio / screen recording threads
 │   ├── database.py          # SQLite schema & helpers
 │   ├── nlp_utils.py         # NLP Auto-titling & context processing
+│   ├── query_engine.py      # Local LLM inference (RAG pipeline)
+│   ├── embedding_utils.py   # Vector embedding + cosine similarity
 │   └── ml_models.py         # ResNet-18 extractor + LSTM classifiers
 ├── frontend/
 │   ├── dashboard.html       # Primary session metrics view
@@ -52,6 +60,6 @@ sentient-project/
 │   └── styles/
 │       └── main.css         # Dark glassmorphic styling
 ├── models/                  # Pre-trained LSTM weights (.pth)
-├── data/                    # SQLite DB + temp recordings
+├── data/                    # SQLite DB + temp recordings + embeddings
 └── requirements.txt         # Segmented Python dependencies
 ```

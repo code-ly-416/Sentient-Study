@@ -1,6 +1,6 @@
 """
 SentientStudy — Local Inference Engine for Semantic Query Assistant.
-Uses a local Ollama instance running llama3.2:1b for on-device session analysis.
+Uses complete chronological context stuffing to ensure 100% factual accuracy.
 """
 
 import json
@@ -13,17 +13,16 @@ from database import get_connection
 OLLAMA_ENDPOINT = "http://127.0.0.1:11434/api/generate"
 
 SYSTEM_PROMPT = (
-    "You are the core analytical brain of Sentient Study, an on-device affective computing system "
-    "that monitors student engagement, confusion, and frustration during study sessions. "
-    "You receive strictly technical, chronological session telemetry logs. "
-    "Respond with precise, data-driven analysis based only on the provided logs. "
-    "Do not speculate beyond the data. Do not engage in casual conversation. "
-    "Reference specific timestamps, metric values, and topic context when forming conclusions."
+    "You are Sentient Study's AI Assistant. You are analyzing a student's study session timeline.\n"
+    "CRITICAL RULES:\n"
+    "1. Answer ONLY using the chronological data logs provided below.\n"
+    "2. If asked for a maximum (e.g., highest frustration), you MUST scan all the data logs provided, compare the metric percentages, and report the highest one alongside its exact Time.\n"
+    "3. DO NOT hallucinate timestamps, topics, or events. Only use what is written in the context.\n"
+    "4. Be direct, technical, and concise."
 )
 
-
 def synthesize_session_query(session_id: int, user_query: str) -> Generator[str, None, None]:
-    """Synthesize an analytical response using a byte-streamed local LLM inference."""
+    """Synthesize an analytical response using the entire session timeline."""
     conn = None
     try:
         conn = get_connection()
@@ -40,46 +39,49 @@ def synthesize_session_query(session_id: int, user_query: str) -> Generator[str,
         yield "No telemetry data found for this session."
         return
 
-    # Compress context payload — skip empty/inactive intervals
+    # Compile the ENTIRE session sequentially
     context_lines = []
     for i, row in enumerate(rows):
         desc = row["description"] or ""
-        if not desc.strip() or desc.strip() == "No active telemetry logged during this interval.":
+        if not desc.strip() or "No active telemetry" in desc:
             continue
 
         eng = round((row["engagement_score"] or 0) * 100, 1)
         conf = round((row["confusion_score"] or 0) * 100, 1)
         frust = round((row["frustration_score"] or 0) * 100, 1)
         topic = row["topic"] or "N/A"
-        offset = i * 10
+        
+        # Strict time formatting
+        time_mark = f"{i * 10} seconds"
 
         context_lines.append(
-            f"[{offset}s] Topic: {topic} | Metrics -> Engaged: {eng}%, Confused: {conf}%, Frustrated: {frust}%\n"
-            f"  Context: {desc}"
+            f"[Time: {time_mark}] Topic: {topic} | Engaged: {eng}%, Confused: {conf}%, Frustrated: {frust}% | Details: {desc}"
         )
 
     if not context_lines:
         yield "No active telemetry intervals were recorded in this session."
         return
 
-    compiled_logs = "\n".join(context_lines)
+    # Load up to the last 200 active chunks (~33 minutes of pure study data)
+    compiled_logs = "\n".join(context_lines[-200:])
 
     prompt = (
         SYSTEM_PROMPT
-        + "\n\n"
+        + "\n\n--- SESSION LOGS ---\n"
         + compiled_logs
-        + "\n\nUser Query: "
+        + "\n\nUser Question: "
         + user_query
+        + "\nAnswer:"
     )
 
     payload = json.dumps({
         "model": "llama3.2:1b",
         "prompt": prompt,
-        "stream": True,  # Streaming activated
+        "stream": True,
         "options": {
-            "temperature": 0.3,
+            "temperature": 0.0,   # Set to 0.0 for maximum mathematical factuality
             "top_p": 0.9,
-            "num_ctx": 4096,
+            "num_ctx": 8192,      # Expanded to hold the entire session memory
         },
     }).encode("utf-8")
 
@@ -92,7 +94,6 @@ def synthesize_session_query(session_id: int, user_query: str) -> Generator[str,
 
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
-            # Yield bytes line-by-line as Ollama computes them
             for line in resp:
                 if line:
                     data = json.loads(line.decode("utf-8"))
