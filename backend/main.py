@@ -5,7 +5,7 @@ SentientStudy - Simple web server.
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 import uvicorn
 import os
@@ -233,10 +233,15 @@ def get_results(session_id: int):
 
 @app.post("/api/query/{session_id}")
 def query_session_assistant(session_id: int, req: AssistantQueryRequest):
+    """Processes plain text queries and streams the generator directly to the client."""
     if not req.query.strip():
         raise HTTPException(400, "Query cannot be empty.")
-    result = synthesize_session_query(session_id, req.query.strip())
-    return {"response": result}
+    
+    # Wrap the generator function inside FastAPI's native StreamingResponse
+    return StreamingResponse(
+        synthesize_session_query(session_id, req.query.strip()), 
+        media_type="text/plain"
+    )
 
 
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

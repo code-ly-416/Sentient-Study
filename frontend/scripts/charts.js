@@ -366,10 +366,7 @@ function destroyChart() {
 }
 
 /**
- * Session Assistant — Async query handler
- */
-/**
- * Session Assistant — Async query handler
+ * Session Assistant — Async streaming query handler
  */
 async function executeAssistantQuery() {
     const inputEl = document.getElementById('assistantQueryInput');
@@ -387,15 +384,14 @@ async function executeAssistantQuery() {
     }
 
     if (!queryText) {
-        // Prevent silent failure if the user clicks execute without typing
         responseArea.textContent = 'Please enter an analytical query first.';
         return;
     }
 
-    // Transition to processing state
+    // Lock inputs and set connecting state
     inputEl.disabled = true;
     btnEl.disabled = true;
-    responseArea.innerHTML = '<span style="color: var(--text-muted); font-style: italic; animation: pulse 1.5s infinite;">Analyzing session telemetry — inference in progress...</span>';
+    responseArea.innerHTML = '<span style="color: var(--text-muted); font-style: italic;">Analyzing session telemetry — connecting to local engine...</span>';
 
     try {
         const resp = await fetch(`/api/query/${sessionId}`, {
@@ -410,14 +406,34 @@ async function executeAssistantQuery() {
             return;
         }
 
-        const data = await resp.json();
-        responseArea.textContent = data.response || 'No response received.';
+        // Clear the loading text cleanly before appending stream
+        responseArea.textContent = '';
+
+        // Attach a byte stream reader to the HTTP response
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let done = false;
+
+        while (!done) {
+            const { value, done: readerDone } = await reader.read();
+            done = readerDone;
+
+            if (value) {
+                const chunk = decoder.decode(value, { stream: true });
+                responseArea.textContent += chunk;
+
+                // Auto-scroll anchor logic
+                responseArea.scrollTop = responseArea.scrollHeight;
+            }
+        }
     } catch (e) {
-        responseArea.textContent = `Network error: ${e.message}`;
+        responseArea.textContent += `\nNetwork error: ${e.message}`;
     } finally {
+        // Unlock inputs and set focus for rapid-fire querying
         inputEl.disabled = false;
         btnEl.disabled = false;
-        inputEl.value = ''; // Clear input on success
+        inputEl.value = '';
+        inputEl.focus();
     }
 }
 

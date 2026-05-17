@@ -6,6 +6,7 @@ Uses a local Ollama instance running llama3.2:1b for on-device session analysis.
 import json
 import urllib.request
 import urllib.error
+from typing import Generator
 
 from database import get_connection
 
@@ -20,8 +21,9 @@ SYSTEM_PROMPT = (
     "Reference specific timestamps, metric values, and topic context when forming conclusions."
 )
 
-def synthesize_session_query(session_id: int, user_query: str) -> str:
-    """Synthesize an analytical response to a user query using local LLM inference."""
+
+def synthesize_session_query(session_id: int, user_query: str) -> Generator[str, None, None]:
+    """Synthesize an analytical response using a byte-streamed local LLM inference."""
     conn = None
     try:
         conn = get_connection()
@@ -35,7 +37,8 @@ def synthesize_session_query(session_id: int, user_query: str) -> str:
             conn.close()
 
     if not rows:
-        return "No telemetry data found for this session."
+        yield "No telemetry data found for this session."
+        return
 
     # Compress context payload — skip empty/inactive intervals
     context_lines = []
@@ -56,7 +59,8 @@ def synthesize_session_query(session_id: int, user_query: str) -> str:
         )
 
     if not context_lines:
-        return "No active telemetry intervals were recorded in this session."
+        yield "No active telemetry intervals were recorded in this session."
+        return
 
     compiled_logs = "\n".join(context_lines)
 
@@ -71,7 +75,7 @@ def synthesize_session_query(session_id: int, user_query: str) -> str:
     payload = json.dumps({
         "model": "llama3.2:1b",
         "prompt": prompt,
-        "stream": False,
+        "stream": True,  # Streaming activated
         "options": {
             "temperature": 0.3,
             "top_p": 0.9,
@@ -88,14 +92,16 @@ def synthesize_session_query(session_id: int, user_query: str) -> str:
 
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            return body.get("response", "No response generated.")
+            # Yield bytes line-by-line as Ollama computes them
+            for line in resp:
+                if line:
+                    data = json.loads(line.decode("utf-8"))
+                    if "response" in data:
+                        yield data["response"]
     except urllib.error.HTTPError as e:
-        # Ollama is alive, but rejected the request (e.g., Model Not Found)
         error_msg = e.read().decode('utf-8')
-        return f"Ollama API Error ({e.code}): {error_msg}"
+        yield f"\n[Ollama API Error ({e.code}): {error_msg}]"
     except urllib.error.URLError:
-        # Ollama is completely unreachable
-        return "⚠ Ollama is unreachable. Is the service running in your system tray?"
+        yield "\n[⚠ Ollama is unreachable. Is the service running in your system tray?]"
     except Exception as e:
-        return f"Inference error: {e}"
+        yield f"\n[Inference error: {e}]"
