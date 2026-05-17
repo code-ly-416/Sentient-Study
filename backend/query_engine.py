@@ -62,8 +62,12 @@ def synthesize_session_query(session_id: int, user_query: str) -> Generator[str,
         yield "No active telemetry intervals were recorded in this session."
         return
 
-    # Load up to the last 200 active chunks (~33 minutes of pure study data)
-    compiled_logs = "\n".join(context_lines[-200:])
+    if len(context_lines) > 214:
+        step = len(context_lines) / 214.0
+        sampled_lines = [context_lines[int(i * step)] for i in range(214)]
+        compiled_logs = "\n".join(sampled_lines)
+    else:
+        compiled_logs = "\n".join(context_lines)
 
     prompt = (
         SYSTEM_PROMPT

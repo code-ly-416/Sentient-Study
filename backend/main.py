@@ -154,6 +154,11 @@ def stop_recording(background_tasks: BackgroundTasks):
         conn = None
         try:
             conn = get_connection()
+            
+            # 1. Fetch current title to prevent overwriting user input
+            session_row = conn.execute("SELECT title FROM sessions WHERE id=?", (sid,)).fetchone()
+            current_title = session_row["title"] if session_row else ""
+            
             rows = conn.execute(
                 "SELECT screen_text, audio_text, topic FROM session_data WHERE session_id=?",
                 (sid,),
@@ -167,8 +172,11 @@ def stop_recording(background_tasks: BackgroundTasks):
                     text_list.append(row["audio_text"])
                 if row["topic"]:
                     topics.append(row["topic"])
-            smart_title = extract_smart_title(text_list)
-            update_session_title(sid, smart_title)
+            
+            # 2. Only apply smart titling if the user didn't provide a custom name
+            if current_title in ["Untitled Study Session", "Study Session", "Untitled Session", ""]:
+                smart_title = extract_smart_title(text_list)
+                update_session_title(sid, smart_title)
             
             session_key_topic = extract_session_key_topic(topics)
             update_session_key_topic(sid, session_key_topic)
@@ -237,7 +245,6 @@ def query_session_assistant(session_id: int, req: AssistantQueryRequest):
     if not req.query.strip():
         raise HTTPException(400, "Query cannot be empty.")
     
-    # Wrap the generator function inside FastAPI's native StreamingResponse
     return StreamingResponse(
         synthesize_session_query(session_id, req.query.strip()), 
         media_type="text/plain"

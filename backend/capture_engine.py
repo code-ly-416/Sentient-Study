@@ -67,10 +67,11 @@ class CaptureEngine:
             print(f"\n[engine] Failed to load models: {e}\n")
             self._models_loaded = False
 
-    def start(self, session_id):
+    def start(self, session_id, session_name=None):
         if not self._models_loaded:
             raise RuntimeError("Models failed to load. Please check terminal logs.")
 
+        self.session_name = session_name if session_name else "Untitled Session"
         self._recording = True
         self._session_id = session_id
         self._start_ts = datetime.now()
@@ -92,9 +93,9 @@ class CaptureEngine:
         print(f"[capture] Stopping session {self._session_id}")
         self._recording = False
 
-        if self.cap is not None:
+        if self.cap is not None and self.cap.isOpened():
             self.cap.release()
-            self.cap = None
+        self.cap = None
 
         if self._threads:
             self._threads[0].join()
@@ -136,19 +137,25 @@ class CaptureEngine:
 
                 # --- 2. Video Capture (runs until the absolute target boundary) ---
                 captured_frames = []
+                last_frame_time = 0
                 while time.time() < (next_chunk_target + 10.0) and self._recording:
                     if self.cap is None or not self.cap.isOpened():
                         break
                     ret, frame = self.cap.read()
+                    current_t = time.time()
                     if ret:
-                        captured_frames.append(frame)
+                        if current_t - last_frame_time >= 1.0:
+                            captured_frames.append(frame)
+                            last_frame_time = current_t
                     else:
                         time.sleep(0.01)
 
-                audio_thread.join() # Wait for the audio to finish
-
-                # --- 3. Process the Chunk ---
-                audio_data = audio_buffer_container[0].flatten() if audio_buffer_container else np.zeros(int(10 * audio_sr), dtype='float32')
+                audio_thread.join(timeout=chunk_duration + 1.0)
+                if audio_thread.is_alive():
+                    print("[capture] WARNING: Audio thread deadlock detected. Falling back to empty audio buffer.")
+                    audio_data = np.zeros(int(10 * audio_sr), dtype='float32')
+                else:
+                    audio_data = audio_buffer_container[0].flatten() if audio_buffer_container else np.zeros(int(10 * audio_sr), dtype='float32')
 
                 if not self._recording:
                     break
@@ -161,9 +168,9 @@ class CaptureEngine:
                 # Advance anchor by strict 10.0s — no sleep needed, capture phase self-regulates
                 next_chunk_target += 10.0
 
-        if self.cap is not None:
+        if self.cap is not None and self.cap.isOpened():
             self.cap.release()
-            self.cap = None
+        self.cap = None
 
     def _process_chunk(self, session_id, chunk_index, chunk_start_time, captured_frames, audio_data):
         ts = (self._start_ts + timedelta(seconds=chunk_index * 10)).isoformat()
