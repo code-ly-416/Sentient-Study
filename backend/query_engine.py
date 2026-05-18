@@ -1,11 +1,12 @@
 """
 SentientStudy — Local Inference Engine for Semantic Query Assistant.
-Uses Intent Routing (SQL + LLM) for mathematical precision and context compression for conceptual queries.
+Uses Intent Routing (SQL + LLM) with Regex-driven dynamic threshold extraction.
 """
 
 import json
 import urllib.request
 import urllib.error
+import re
 from typing import Generator
 
 from database import get_connection
@@ -18,6 +19,9 @@ CATEGORIES:
 PEAK_FRUSTRATION - (e.g., "when was I most frustrated?", "highest frustration spike")
 PEAK_CONFUSION - (e.g., "when was I most confused?", "highest confusion")
 PEAK_ENGAGEMENT - (e.g., "when was I most engaged?", "peak engagement")
+THRESHOLD_FRUSTRATION - (e.g., "when did my frustration go above 50%", "frustrated more than 0.8")
+THRESHOLD_CONFUSION - (e.g., "confusion over 70%", "confused higher than 60")
+THRESHOLD_ENGAGEMENT - (e.g., "engagement dropped below 30%", "engaged less than 40%")
 AVERAGE_METRICS - (e.g., "what was my average score?", "overall engagement", "average metrics")
 CONCEPT - (e.g., "summarize the lecture", "what did I study?", "explain the topic", "what happened")
 
@@ -33,9 +37,28 @@ SYSTEM_PROMPT_CONCEPT = (
 
 SYSTEM_PROMPT_MATH = (
     "You are Sentient Study's AI Assistant. I have queried the database and calculated the exact mathematical answer to the user's question.\n"
-    "Convert the raw database results provided below into a natural, direct, and concise sentence for the user.\n"
-    "Do not hallucinate any other data."
+    "Convert the raw database results provided below into a natural, direct, and concise summary for the user.\n"
+    "If multiple timestamps are provided, summarize the overall trend or list the most notable ones briefly. Do not hallucinate any other data."
 )
+
+def _extract_threshold_and_operator(query: str) -> tuple[float, str]:
+    """Extracts numerical thresholds and directional intent from natural language."""
+    query_lower = query.lower()
+    
+    # Determine mathematical operator based on keyword presence
+    operator = "<=" if any(word in query_lower for word in ["below", "under", "less", "lower", "drop"]) else ">="
+    
+    # Extract the first numerical digit found in the query
+    matches = re.findall(r'(\d+(?:\.\d+)?)', query)
+    val = 0.50  # Default fallback if no number is found
+    
+    if matches:
+        raw_val = float(matches[0])
+        # Auto-convert whole numbers (e.g., "50") to database decimal formats (0.50)
+        val = raw_val / 100.0 if raw_val > 1.0 else raw_val
+        
+    return val, operator
+
 
 def _call_ollama_sync(prompt: str, max_tokens: int = 20) -> str:
     """Fast, synchronous call to Ollama to classify query intent."""
@@ -54,7 +77,7 @@ def _call_ollama_sync(prompt: str, max_tokens: int = 20) -> str:
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("response", "").strip().upper()
     except Exception:
-        return "CONCEPT"  # Safe fallback if router fails
+        return "CONCEPT"
 
 
 def synthesize_session_query(session_id: int, user_query: str) -> Generator[str, None, None]:
@@ -64,7 +87,6 @@ def synthesize_session_query(session_id: int, user_query: str) -> Generator[str,
     try:
         conn = get_connection()
         
-        # Guard clause for empty sessions
         count = conn.execute("SELECT COUNT(*) FROM session_data WHERE session_id = ?", (session_id,)).fetchone()[0]
         if count == 0:
             yield "No telemetry data found for this session."
@@ -74,8 +96,12 @@ def synthesize_session_query(session_id: int, user_query: str) -> Generator[str,
         formatted_router_prompt = ROUTER_PROMPT.format(query=user_query)
         raw_intent = _call_ollama_sync(formatted_router_prompt)
         
-        # Clean the intent vector
-        valid_intents = ["PEAK_FRUSTRATION", "PEAK_CONFUSION", "PEAK_ENGAGEMENT", "AVERAGE_METRICS"]
+        valid_intents = [
+            "PEAK_FRUSTRATION", "PEAK_CONFUSION", "PEAK_ENGAGEMENT", 
+            "AVERAGE_METRICS", 
+            "THRESHOLD_FRUSTRATION", "THRESHOLD_CONFUSION", "THRESHOLD_ENGAGEMENT"
+        ]
+        
         matched_intent = "CONCEPT"
         for vi in valid_intents:
             if vi in raw_intent:
@@ -85,6 +111,8 @@ def synthesize_session_query(session_id: int, user_query: str) -> Generator[str,
         # 2. MATH / SQL EXECUTION PHASE
         if matched_intent != "CONCEPT":
             db_context = ""
+            
+            # Handle Absolute Queries
             if matched_intent == "PEAK_FRUSTRATION":
                 row = conn.execute("SELECT timestamp, frustration_score, topic FROM session_data WHERE session_id = ? ORDER BY frustration_score DESC LIMIT 1", (session_id,)).fetchone()
                 db_context = f"Peak Frustration: {round(row['frustration_score']*100, 1)}% at {row['timestamp']}. Topic Context: {row['topic']}"
@@ -97,6 +125,29 @@ def synthesize_session_query(session_id: int, user_query: str) -> Generator[str,
             elif matched_intent == "AVERAGE_METRICS":
                 row = conn.execute("SELECT AVG(engagement_score) as avg_e, AVG(confusion_score) as avg_c, AVG(frustration_score) as avg_f FROM session_data WHERE session_id = ?", (session_id,)).fetchone()
                 db_context = f"Session Averages -> Engagement: {round(row['avg_e']*100, 1)}%, Confusion: {round(row['avg_c']*100, 1)}%, Frustration: {round(row['avg_f']*100, 1)}%"
+            
+            # Handle Conditional Threshold Queries
+            elif matched_intent.startswith("THRESHOLD_"):
+                threshold, operator = _extract_threshold_and_operator(user_query)
+                col_map = {
+                    "THRESHOLD_FRUSTRATION": "frustration_score",
+                    "THRESHOLD_CONFUSION": "confusion_score",
+                    "THRESHOLD_ENGAGEMENT": "engagement_score"
+                }
+                target_col = col_map[matched_intent]
+                metric_name = target_col.replace('_score', '').capitalize()
+                
+                # Secure parameterized query execution
+                query_sql = f"SELECT timestamp, {target_col}, topic FROM session_data WHERE session_id = ? AND {target_col} {operator} ? ORDER BY timestamp ASC"
+                rows = conn.execute(query_sql, (session_id, threshold)).fetchall()
+                
+                if not rows:
+                    db_context = f"No timeline events found where {metric_name} was {operator} {threshold*100}%."
+                else:
+                    # Truncate database results to prevent token limit crashes on heavy queries
+                    limit = 15
+                    formatted_rows = [f"[{r['timestamp']}] {metric_name}: {round(r[target_col]*100, 1)}% | Topic: {r['topic']}" for r in rows[:limit]]
+                    db_context = f"Found {len(rows)} instances matching {metric_name} {operator} {threshold*100}%. Here are the earliest {len(formatted_rows)} occurrences:\n" + "\n".join(formatted_rows)
 
             prompt = f"{SYSTEM_PROMPT_MATH}\n\nRaw Database Result:\n{db_context}\n\nUser Question: {user_query}\nAnswer:"
             
@@ -124,7 +175,6 @@ def synthesize_session_query(session_id: int, user_query: str) -> Generator[str,
                 yield "No active telemetry intervals were recorded in this session."
                 return
 
-            # Strict Context Compression to prevent 8192 token limit crash on sessions > 35 minutes
             max_safe_chunks = 214
             if len(context_lines) > max_safe_chunks:
                 step = len(context_lines) / max_safe_chunks
@@ -139,7 +189,7 @@ def synthesize_session_query(session_id: int, user_query: str) -> Generator[str,
         if conn:
             conn.close()
 
-    # 4. STREAMING PHASE (Executes for both routes)
+    # 4. STREAMING PHASE
     payload = json.dumps({
         "model": "llama3.2:1b",
         "prompt": prompt,
